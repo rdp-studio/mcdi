@@ -8,10 +8,11 @@ Minecraft 1.15.x
 
 import logging
 import os
+import time
 
 from pic_project.core import Generator as Gen
 from pic_project.core import concrete_mapping, wool_mapping, terracotta_mapping, Directions
-from video_project import operator, generator
+from video_project import unattended, video_gen
 
 PIC_DIRS = r"D:\revenge-frames"  # Where you save your image frame files, THAT MUST BE ASCII!!
 
@@ -32,6 +33,8 @@ VIDEO_GENERATE = True  # Whether you want to use generator or not, needs opencv-
 TEMP_DIR = r"D:\tmp"  # Where to save the temporary files, THAT MUST BE ASCII!!
 GENERATE_DIR = r"D:\revenge.avi"  # Where to save the output
 FPS = 24  # The expecting frame rate
+
+
 # -->
 
 
@@ -39,7 +42,7 @@ class Generator(object):
     def __init__(self, fp, width=256, height=144, from_=0, unattended=True, video_generate=True,
                  mappings=None, directions=Directions.XY, absolute=True, tp=r"D:\tmp",
                  op="D:\\", fps=24, wait_time=3):
-        logging.info("正在初始化生成器……")  # Initialize
+        logging.debug("Initializing...")  # Initialize
         self.fp = fp
         self.width = width
         self.height = height
@@ -67,52 +70,52 @@ class Generator(object):
         # -->
 
     def build_write_frames(self, wp):
-        logging.info("正在遍历目录……")
+        logging.info("Iterating the source directory...")
 
         frames = list()  # Iterate in the frames' directory
         for root, _, files in os.walk(PIC_DIRS):
             for frame_name in files:
                 frames.append(os.path.join(root, frame_name))
 
-        logging.info("构建已读取的 %d 帧……" % len(frames))
+        logging.info(f"Building {len(frames)} frames got.")
 
         frame_count = 0  # Counter
         flags = {"enabled": True, "done": False}
         if self.unattended:  # Create unattended thread
-            operator.main_worker(flags, self.wait_time, self.tp)
+            unattended.main_worker(flags, self.wait_time, self.tp)
 
         for frame_path in frames:
             if frame_count < self.from_:  # If it's already created,
-                logging.warning("依照配置，已跳过第 %d 帧。" % frame_count)
+                logging.warning(f"Skipped {frame_count} frame(s).")
                 frame_count += 1
                 continue  # Skip this frame
             gen = Gen(frame_path, width=self.width, height=self.height, mappings=self.mappings,
                       directions=self.directions, absolute=self.absolute)
 
-            logging.info("已构建 %d 帧, 共计 %d 帧。" % (frame_count, len(frames)))
+            logging.info(f"Built {frame_count} frame(s), {len(frames)} frames in all.")
             gen.build_pixels()
-            logging.info("已写入 %d 帧, 共计 %d 帧。" % (frame_count, len(frames)))
+            logging.info(f"Wrote {frame_count} frame(s), {len(frames)} frames in all.")
             gen.write_built(wp)  # Calls pic_project.core, generates picture function
 
             flags["done"] = True  # Wake operator up
-            logging.info("等待操作器实用程序……")
+            logging.info("Waiting for the unattended process (if exists)...")
             while flags["done"] and self.unattended:
                 pass  # Wake for the game
             if not self.unattended:  # Manual operation
-                input("按下回车以继续……")
+                time.sleep(self.wait_time)
 
             frame_count += 1
         flags["enabled"] = False  # Stop unattended thread
 
         if self.video_generate:  # Create generate thread
-            logging.info("等待生成器实用程序……")
+            logging.info("Waiting for the video generator...")
             frames = list()  # Iterate in the temporary directory
             for root, _, files in os.walk(self.tp):
                 for frame_name in files:
                     frames.append(os.path.join(root, frame_name))
-            generator.main_worker(self.op, self.fps, *frames)
+            video_gen.main_worker(self.op, self.fps, *frames)
 
-        logging.info("构建帧完成。")  # Finish!
+        logging.info("Build process finished.")  # Finish!
 
 
 if __name__ == "__main__":

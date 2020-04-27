@@ -1,23 +1,23 @@
 import logging
+import os
 import threading
 from time import sleep
-from time import time as time_
-import os
+from time import time as t
 
 from PIL import ImageGrab
 
 
 def main_function(flags, time, tmp):
-    logging.info("正在等待生成器。")  # Wait for the core
+    logging.info("Waiting for the generator...")  # Wait for the core
     while flags["enabled"]:
         while not flags["done"]:
             sleep(1E-2)
-        logging.info("正在等待游戏刷新。")
+        logging.info("Waiting for the refresh...")
         sleep(time)  # Wait for the game
-        logging.info("正在获取屏幕截图。")
+        logging.info("Grabbing screenshot...")
         im = ImageGrab.grab()  # Take screenshot
-        im.save(os.path.join(tmp, "%d.png" % time_()))
-        logging.info("任务阻塞结束，进入下一帧。")  # Continue!
+        im.save(os.path.join(tmp, "%d.png" % t()))
+        logging.info("Continue for the next frame!")  # Continue!
         flags["done"] = False
     # Exit
 

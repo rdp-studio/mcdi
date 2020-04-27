@@ -30,6 +30,7 @@ MIDDLEWARES = [
 ]
 
 from midi_project.plugins import progress
+
 PLUGINS = [
     {
         "package": progress,
@@ -47,7 +48,7 @@ class Generator(mido.MidiFile):
             plugins = []
         if middles is None:
             middles = []
-        logging.info("正在初始化生成器……")
+        logging.debug("Initializing...")
         super().__init__(fp)
         self.wrap_length = wrap_length
         self.wrap_axis = wrap_axis
@@ -66,38 +67,38 @@ class Generator(mido.MidiFile):
         self.tempo = 5E5
 
         if self.plugins:
-            logging.info("正在载入插件……")
+            logging.info("Installing plugins...")
         for i, cfg in enumerate(self.plugins):
             plg = cfg["package"]
             if not hasattr(plg, "MainObject"):
-                logging.warning("已丢弃插件：%s，因为其不是一个合格的MCDI插件。" % plg.__file__)
+                logging.warning(f"Dropped plugin {plg.__file__}, as it's not a proper MCDI plugin.")
                 self.plugins.remove(plg)
                 continue
-            logging.info("已装载插件：%s。" % plg.__file__)
+            logging.info("Installed plugin: %s." % plg.__file__)
             if hasattr(plg, "__author__"):
-                logging.info("- 此插件的作者是：%s" % plg.__author__)
+                logging.info("- Author: %s" % plg.__author__)
             if hasattr(plg, "__doc__"):
-                logging.info("- 此插件的自述：%s" % plg.__doc__)
+                logging.info("- Description: %s" % plg.__doc__)
             self.plugins[i] = plg.MainObject(*cfg["args"], **cfg["kwargs"])
         if self.middles:
-            logging.info("正在载入中间件……")
+            logging.info("Installing middlewares...")
         for i, cfg in enumerate(self.middles):
             plg = cfg["package"]
             if not hasattr(plg, "MainObject"):
-                logging.warning("已丢弃中间件：%s，因为其不是一个合格的MCDI中间件。" % plg.__file__)
+                logging.warning(f"Dropped plugin {plg.__file__}, as it's not a proper MCDI plugin.")
                 self.middles.remove(plg)
                 continue
-            logging.info("已中间件插件：%s。" % plg.__file__)
+            logging.info(f"Installed plugin: {plg.__file__}.")
             if hasattr(plg, "__author__"):
-                logging.info("- 此中间件的作者是：%s" % plg.__author__)
+                logging.info(f"- Author: {plg.__author__}")
             if hasattr(plg, "__doc__"):
-                logging.info("- 此中间件的自述：%s" % plg.__doc__)
+                logging.info(f"- Description: {plg.__doc__}")
             self.middles[i] = plg.MainObject(*cfg["args"], **cfg["kwargs"])
 
     def parse_tracks(self):
         self.parsed_msgs.clear()
         for _, track in enumerate(self.tracks):
-            logging.info("正在读取轨道 %d：%s 中的事件。" % (_, track))
+            logging.info(f"Reading events from track {_:d}: {track}...")
 
             time_accum = 0
             time_diff_sum = 0
@@ -162,12 +163,12 @@ class Generator(mido.MidiFile):
                     try:
                         plugin.execute(self)
                     except BaseException as e:
-                        logging.warning("中间件 %s 引发了异常：%s" % (plugin, e))
-                        logging.critical("构建已终止。")
+                        logging.warning(f"Exception in middleware {plugin}: {e}")
+                        logging.critical("Parse process stopped.")
 
         self.parsed_msgs.sort(key=lambda n: n["tick"])
-        logging.debug(f"平均浮点舍入秒差距={time_diff_sum / len(self.parsed_msgs)}")
-        logging.info("读取事件完成。")
+        logging.debug(f"Average round difference: {time_diff_sum / len(self.parsed_msgs)}")
+        logging.info("Parse process finished.")
 
     def build_parsed(self):
         self.built_cmds.clear()
@@ -177,7 +178,7 @@ class Generator(mido.MidiFile):
         self.tick_cache = list()
         self.tick = 0
 
-        logging.info("构建已读取的 %d 条事件。" % len(self.parsed_msgs))
+        logging.info(f'Building {len(self.parsed_msgs)} event(s) parsed。')
 
         for self.tick in range(self.parsed_msgs[-1]["tick"] + 1):
             self.build_index = self.build_count % self.wrap_length
@@ -219,19 +220,19 @@ class Generator(mido.MidiFile):
                 try:
                     plugin.execute(self)
                 except BaseException as e:
-                    logging.warning("插件 %s 引发了异常：%s" % (plugin, e))
-                    logging.critical("构建已终止。")
+                    logging.warning(f"Exception in plugin {plugin}: {e}")
+                    logging.critical("Build process stopped.")
                     raise e
 
             self.build_count += 1
             self.y_index = 0
 
             if self.tick % 5E2 == 0:
-                logging.info("已构建 %d 游戏刻, 共计 %d 游戏刻。" % (self.tick, self.parsed_msgs[-1]["tick"] + 1))
+                logging.info(f"Built {self.tick} tick(s), {self.parsed_msgs[-1]['tick'] + 1} tick(s) in all.")
             self.tick_cache.clear()
 
-        logging.info("构建事件完成。")
-        logging.info("这首音乐预计将有 %f 秒长。" % (self.tick / 20))
+        logging.info("Build process finished.")
+        logging.debug(f"Estimated duration: {self.tick / 20} second(s)。")
 
     @staticmethod
     def play_soma_code(program, note, v=255, pan=64, pitch=1):
@@ -260,19 +261,19 @@ class Generator(mido.MidiFile):
         return f"setblock ~{x_shift} ~{y_shift} ~{z_shift} minecraft:air replace"
 
     def write_built(self, wp):
-        logging.info("写入已构建的 %d 条指令。" % (length := len(self.built_cmds)))
+        logging.info(f"Writing {(length := len(self.built_cmds))} command(s) built.")
         if length >= 65536:
-            logging.warning("注意，由于您的音乐函数长于默认允许的最大值（65536），请尝试键入以下指令。")
-            logging.info("试试这个：/gamerule maxCommandChainLength %d" % (length + 1))  # Too long
+            logging.warning("Notice: please try this command as your music function is longer than 65536 line(s).")
+            logging.info("Try this: /gamerule maxCommandChainLength %d" % (length + 1))  # Too long
 
         os.makedirs(os.path.join(wp, r"datapacks\MCDI\data\mcdi\functions"), exist_ok=True)
         with open(os.path.join(wp, r"datapacks\MCDI\pack.mcmeta"), "w") as file:
             file.write('{"pack":{"pack_format":233,"description":"Made by MCDI, a project by kworker(FrankYang)."}}')
         with open(os.path.join(wp, r"datapacks\MCDI\data\mcdi\functions\music.mcfunction"), "w") as file:
             file.writelines(self.built_cmds)
-        logging.info("写入指令完成。")
-        logging.info("要运行音乐函数，键入：'/reload'")
-        logging.info("接着键入： '/function mcdi:music'")
+        logging.info("Write process finished.")
+        logging.debug("To run the music function: '/reload'")
+        logging.debug("Then: '/function mcdi:music'")
 
 
 if __name__ == '__main__':

@@ -1,5 +1,5 @@
 __author__ = "kworker"
-__doc__ = """我只是一个简单的进度条。"""
+__doc__ = """A simple progressbar that's enough."""
 
 
 class MainObject(object):

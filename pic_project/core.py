@@ -74,17 +74,19 @@ terracotta_mapping = {
         (134, 106, 98), (85, 90, 90), (119, 70, 84), (76, 59, 88),
         (79, 54, 42), (74, 82, 47), (146, 64, 51), (43, 30, 24),
     ]}
+
+
 # -->
 
 
 class Generator(object):
     def __init__(self, fp, width=192, height=128, mappings=None, directions=Directions.XY, absolute=False):
-        logging.info("正在初始化生成器……")  # Initialize
+        logging.debug("Initializing...")  # Initialize
         if mappings is None:  # Override
             self.mappings = [concrete_mapping]
         else:
             self.mappings = mappings
-        logging.info("正在读取图片：%s。" % fp)
+        logging.debug(f"Loading picture: {fp}")
         self.img = Image.open(fp=fp)
         self.x = width
         self.y = height
@@ -94,13 +96,13 @@ class Generator(object):
 
     def build_pixels(self, resample=Image.LANCZOS):
         if self.img.width != self.x and self.img.height != self.y:
-            logging.info("正在缩放图片……")
+            logging.info("Resizing the picture...")
             self.img = self.img.resize((self.x, self.y), resample=resample)
         else:  # Size is the same, no scale
-            logging.info("图片的尺寸等于构建尺寸，不予缩放。")
-        logging.info("正在加载图片中的 %d 个像素……" % (pixel_count := self.x * self.y))
+            logging.info("No resize needed. Continue...")
+        logging.info(f"Reading {(pixel_count := self.x * self.y)} pixels...")
         loaded_pixels = self.img.load()  # Load pixels
-        logging.info("按照映射表构建已读取的 %d 个像素……" % pixel_count)
+        logging.info(f"Building {pixel_count} pixels according to the mapping(s)...")
         for x in range(self.x):
             for y in range(self.y):
                 pixel = loaded_pixels[x, y]
@@ -126,9 +128,9 @@ class Generator(object):
                 self.set_block(x, y, block_name)  # Execute setblock builder
 
                 if (built_count := x * self.y + y) % 4000 == 0:  # Show progress
-                    logging.info("已构建 %d 像素, 共计 %d 像素。" % (built_count, pixel_count))
+                    logging.info("Built %s pixels, %s pixels in all." % (built_count, pixel_count))
 
-        logging.info("构建像素完成。")
+        logging.info("Build process complete.")
 
     def set_block(self, x, y, block):
         if self.directions == Directions.XY:
@@ -148,19 +150,19 @@ class Generator(object):
                 self.built_cmds.append("setblock {} 0 {} minecraft:{} replace\n".format(x, self.y - y - 1, block))
 
     def write_built(self, wp):
-        logging.info("写入已构建的 %d 条指令。" % (length := len(self.built_cmds)))
+        logging.info(f"Writing {(length := len(self.built_cmds))} command(s) built.")
         if length >= 65536:
-            logging.warning("注意，由于您的图片函数长于默认允许的最大值（65536），请尝试键入以下指令。")
-            logging.info("试试这个：/gamerule maxCommandChainLength %d" % (length + 1))  # Too long
+            logging.warning("Notice: please try this command as your picture function is longer than 65536 line(s).")
+            logging.info("Try this: /gamerule maxCommandChainLength %d" % (length + 1))  # Too long
 
         os.makedirs(os.path.join(wp, r"datapacks\MCDI\data\mcdi\functions"), exist_ok=True)
         with open(os.path.join(wp, r"datapacks\MCDI\pack.mcmeta"), "w") as file:
             file.write('{"pack":{"pack_format":233,"description":"Made by MCDI, a project by kworker(FrankYang)."}}')
         with open(os.path.join(wp, r"datapacks\MCDI\data\mcdi\functions\picture.mcfunction"), "w") as file:
             file.writelines(self.built_cmds)
-        logging.info("写入指令完成。")
-        logging.info("要运行图片函数，键入：'/reload'")
-        logging.info("接着键入： '/function mcdi:picture'")
+        logging.info("Write process finished.")
+        logging.debug("To run the picture function: '/reload'")
+        logging.debug("Then: '/function mcdi:music'")
 
 
 if __name__ == '__main__':
