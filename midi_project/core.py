@@ -13,7 +13,7 @@ import mido
 MIDI_DIR = r"D:\桌面\Revenge.mid"  # Where you save your midi file.
 
 GAME_DIR = r"D:\Minecraft\.minecraft\versions\1.15.2"  # Your game directory
-WORLD_DIR = r"Test"  # Your world name
+WORLD_DIR = r"Revenge"  # Your world name
 DATA_DIR = os.path.join(GAME_DIR, "saves", WORLD_DIR)  # NEVER CHANGE THIS
 
 TICK_RATE = 76.8  # The higher, the faster
@@ -29,8 +29,13 @@ MIDDLEWARES = [
 
 ]
 
+from midi_project.plugins import progress
 PLUGINS = [
-
+    {
+        "package": progress,
+        "args": (),
+        "kwargs": {},
+    }
 ]
 
 
@@ -258,7 +263,7 @@ class Generator(mido.MidiFile):
         logging.info("写入已构建的 %d 条指令。" % (length := len(self.built_cmds)))
         if length >= 65536:
             logging.warning("注意，由于您的音乐函数长于默认允许的最大值（65536），请尝试键入以下指令。")
-            logging.info("试试这个：/gamerule maxCommandChainLength %d" % (length + 1))
+            logging.info("试试这个：/gamerule maxCommandChainLength %d" % (length + 1))  # Too long
 
         os.makedirs(os.path.join(wp, r"datapacks\MCDI\data\mcdi\functions"), exist_ok=True)
         with open(os.path.join(wp, r"datapacks\MCDI\pack.mcmeta"), "w") as file:

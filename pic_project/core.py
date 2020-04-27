@@ -74,17 +74,16 @@ terracotta_mapping = {
         (134, 106, 98), (85, 90, 90), (119, 70, 84), (76, 59, 88),
         (79, 54, 42), (74, 82, 47), (146, 64, 51), (43, 30, 24),
     ]}
-
-
 # -->
 
 
 class Generator(object):
     def __init__(self, fp, width=192, height=128, mappings=None, directions=Directions.XY, absolute=False):
-        logging.info("正在初始化生成器……")
-        self.mappings = mappings
-        if mappings is None:
+        logging.info("正在初始化生成器……")  # Initialize
+        if mappings is None:  # Override
             self.mappings = [concrete_mapping]
+        else:
+            self.mappings = mappings
         logging.info("正在读取图片：%s。" % fp)
         self.img = Image.open(fp=fp)
         self.x = width
@@ -97,36 +96,36 @@ class Generator(object):
         if self.img.width != self.x and self.img.height != self.y:
             logging.info("正在缩放图片……")
             self.img = self.img.resize((self.x, self.y), resample=resample)
-        else:
+        else:  # Size is the same, no scale
             logging.info("图片的尺寸等于构建尺寸，不予缩放。")
         logging.info("正在加载图片中的 %d 个像素……" % (pixel_count := self.x * self.y))
-        loaded_pixels = self.img.load()
+        loaded_pixels = self.img.load()  # Load pixels
         logging.info("按照映射表构建已读取的 %d 个像素……" % pixel_count)
         for x in range(self.x):
             for y in range(self.y):
                 pixel = loaded_pixels[x, y]
                 nearest_color = None
                 nearest_mapping = None
-                minimums = 765
+                minimums = 765  # The max possible value
                 for mapping in self.mappings:
                     for color in mapping["mapping"]:
                         r_diff = abs(color[0] - pixel[0])
                         g_diff = abs(color[1] - pixel[1])
                         b_diff = abs(color[2] - pixel[2])
                         diff = r_diff + g_diff + b_diff
-                        if diff < minimums:
+                        if diff < minimums:  # If this one is closer
                             minimums = diff
                             nearest_color = color
                             nearest_mapping = mapping
-                if nearest_mapping["type"] == Types.COLORFUL:
+                if nearest_mapping["type"] == Types.COLORFUL:  # If it's colorful block
                     color = color_index[nearest_mapping["mapping"].index(nearest_color)]
                     _class = nearest_mapping["key"]
                     block_name = "%s_%s" % (color, _class)
-                elif nearest_mapping["type"] == Types.NORMAL:
+                elif nearest_mapping["type"] == Types.NORMAL:  # If it's normal block
                     block_name = nearest_mapping["mapping"][nearest_color]
-                self.set_block(x, y, block_name)
+                self.set_block(x, y, block_name)  # Execute setblock builder
 
-                if (built_count := x * self.y + y) % 4000 == 0:
+                if (built_count := x * self.y + y) % 4000 == 0:  # Show progress
                     logging.info("已构建 %d 像素, 共计 %d 像素。" % (built_count, pixel_count))
 
         logging.info("构建像素完成。")
@@ -152,7 +151,7 @@ class Generator(object):
         logging.info("写入已构建的 %d 条指令。" % (length := len(self.built_cmds)))
         if length >= 65536:
             logging.warning("注意，由于您的图片函数长于默认允许的最大值（65536），请尝试键入以下指令。")
-            logging.info("试试这个：/gamerule maxCommandChainLength %d" % (length + 1))
+            logging.info("试试这个：/gamerule maxCommandChainLength %d" % (length + 1))  # Too long
 
         os.makedirs(os.path.join(wp, r"datapacks\MCDI\data\mcdi\functions"), exist_ok=True)
         with open(os.path.join(wp, r"datapacks\MCDI\pack.mcmeta"), "w") as file:

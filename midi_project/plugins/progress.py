@@ -3,7 +3,7 @@ __doc__ = """我只是一个简单的进度条。"""
 
 
 class MainObject(object):
-    def __init__(self, pk=0, name="Made by MCDI, a project by kworker(FrankYang)", color="yellow", *args, **kwargs):
+    def __init__(self, pk=0, name="Copyright (c) 2020 kworker", color="yellow", *args, **kwargs):
         self.pk = pk
         self.name = name
         self.color = color
