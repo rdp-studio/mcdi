@@ -3,7 +3,6 @@ Requirements:
 Python 3.8.x
 - Package: pillow
 Minecraft 1.15.x
-** An Nvidia graphics card **
 """
 
 import logging
