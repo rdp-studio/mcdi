@@ -32,10 +32,10 @@ class Directions(Enum):
 
 # -->
 
-PIC_DIR = r"D:\图片\Frank.jpg"  # Where you save your picture file.
+PIC_DIR = r"D:\Frank.jpg"  # Where you save your picture file.
 
 GAME_DIR = r"D:\Minecraft\.minecraft\versions\1.15.2"  # Your game directory
-WORLD_DIR = r"Test"  # Your world name
+WORLD_DIR = r"Template"  # Your world name
 DATA_DIR = os.path.join(GAME_DIR, "saves", WORLD_DIR)  # NEVER CHANGE THIS
 
 # <!-- NEVER CHANGE THESE

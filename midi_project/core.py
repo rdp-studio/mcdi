@@ -10,10 +10,10 @@ import os
 
 import mido
 
-MIDI_DIR = r"D:\桌面\Revenge.mid"  # Where you save your midi file.
+MIDI_DIR = r"D:\revenge.mid"  # Where you save your midi file.
 
 GAME_DIR = r"D:\Minecraft\.minecraft\versions\1.15.2"  # Your game directory
-WORLD_DIR = r"Revenge"  # Your world name
+WORLD_DIR = r"Template"  # Your world name
 DATA_DIR = os.path.join(GAME_DIR, "saves", WORLD_DIR)  # NEVER CHANGE THIS
 
 TICK_RATE = 76.8  # The higher, the faster
@@ -32,11 +32,7 @@ MIDDLEWARES = [
 from midi_project.plugins import progress
 
 PLUGINS = [
-    {
-        "package": progress,
-        "args": (),
-        "kwargs": {},
-    }
+
 ]
 
 
@@ -82,18 +78,7 @@ class Generator(mido.MidiFile):
             self.plugins[i] = plg.MainObject(*cfg["args"], **cfg["kwargs"])
         if self.middles:
             logging.info("Installing middlewares...")
-        for i, cfg in enumerate(self.middles):
-            plg = cfg["package"]
-            if not hasattr(plg, "MainObject"):
-                logging.warning(f"Dropped plugin {plg.__file__}, as it's not a proper MCDI plugin.")
-                self.middles.remove(plg)
-                continue
-            logging.info(f"Installed plugin: {plg.__file__}.")
-            if hasattr(plg, "__author__"):
-                logging.info(f"- Author: {plg.__author__}")
-            if hasattr(plg, "__doc__"):
-                logging.info(f"- Description: {plg.__doc__}")
-            self.middles[i] = plg.MainObject(*cfg["args"], **cfg["kwargs"])
+
 
     def parse_tracks(self):
         self.parsed_msgs.clear()
@@ -160,11 +145,7 @@ class Generator(mido.MidiFile):
                     pass
                 time_accum += msg.time
                 for plugin in self.middles:
-                    try:
-                        plugin.execute(self)
-                    except BaseException as e:
-                        logging.warning(f"Exception in middleware {plugin}: {e}")
-                        logging.critical("Parse process stopped.")
+                    plugin.read(self)
 
         self.parsed_msgs.sort(key=lambda n: n["tick"])
         logging.debug(f"Average round difference: {time_diff_sum / len(self.parsed_msgs)}")
@@ -217,12 +198,7 @@ class Generator(mido.MidiFile):
                     self.y_index += 1
 
             for plugin in self.plugins:
-                try:
-                    plugin.execute(self)
-                except BaseException as e:
-                    logging.warning(f"Exception in plugin {plugin}: {e}")
-                    logging.critical("Build process stopped.")
-                    raise e
+                plugin.read(self)
 
             self.build_count += 1
             self.y_index = 0

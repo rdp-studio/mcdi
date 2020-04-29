@@ -31,10 +31,8 @@ WAIT_TIME = 3  # The time to wait for the game to reload the picture.
 VIDEO_GENERATE = True  # Whether you want to use generator or not, needs opencv-python
 # <!-- These won't work unless you set VIDEO_GENERATE to True.
 TEMP_DIR = r"D:\tmp"  # Where to save the temporary files, THAT MUST BE ASCII!!
-GENERATE_DIR = r"D:\桌面\revenge.avi"  # Where to save the output
+GENERATE_DIR = r"D:\revenge.avi"  # Where to save the output
 FPS = 24  # The expecting frame rate
-
-
 # -->
 
 
