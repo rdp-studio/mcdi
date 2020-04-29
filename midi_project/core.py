@@ -10,36 +10,36 @@ import os
 
 import mido
 
-MIDI_DIR = r"D:\revenge.mid"  # Where you save your midi file.
+MIDI_DIR = r"D:\MIDITrail\only_my_railgun_guitar.mid"  # Where you save your midi file.
 
 GAME_DIR = r"D:\Minecraft\.minecraft\versions\1.15.2"  # Your game directory
-WORLD_DIR = r"Template"  # Your world name
+WORLD_DIR = r"Tester"  # Your world name
 DATA_DIR = os.path.join(GAME_DIR, "saves", WORLD_DIR)  # NEVER CHANGE THIS
 
-TICK_RATE = 76.8  # The higher, the faster
+TICK_RATE = 60  # The higher, the faster
 
 DRUM_ENABLED = True  # Whether you want to use the drum or not
 PAN_ENABLED = True  # Whether you want to use the pan value or not
 GLOBAL_VOLUME_ENABLED = True  # Whether you want to use the global volume or not
-PITCH_ENABLED = False  # Whether you want to use the pitch value or not
-PITCH_FACTOR = 0.00025  # How much do you want the pitch value to be
+PITCH_ENABLED = True  # Whether you want to use the pitch value or not
+PITCH_FACTOR = 0.05  # How much do you want the pitch value to be
 VOLUME_FACTOR = 1.5  # 1 as default, the bigger, the louder
 
 MIDDLEWARES = [
 
 ]
 
-from midi_project.plugins import progress
+from midi_project.plugins import *
 
 PLUGINS = [
-
+    PianoFall()
 ]
 
 
 class Generator(mido.MidiFile):
     def __init__(self, fp, wrap_length=64, wrap_axis="x", tick_time=50, drum_enabled=False, pan_enabled=True,
                  gvol_enabled=True, pitch_enabled=True, pitch_factor=2.5E-4, volume_factor=1, plugins=None,
-                 middles=None):
+                 middles=None, blank_ticks=0):
         if plugins is None:
             plugins = []
         if middles is None:
@@ -61,29 +61,13 @@ class Generator(mido.MidiFile):
         self.parsed_msgs = list()
         self.built_cmds = list()
         self.tempo = 5E5
-
-        if self.plugins:
-            logging.info("Installing plugins...")
-        for i, cfg in enumerate(self.plugins):
-            plg = cfg["package"]
-            if not hasattr(plg, "MainObject"):
-                logging.warning(f"Dropped plugin {plg.__file__}, as it's not a proper MCDI plugin.")
-                self.plugins.remove(plg)
-                continue
-            logging.info("Installed plugin: %s." % plg.__file__)
-            if hasattr(plg, "__author__"):
-                logging.info("- Author: %s" % plg.__author__)
-            if hasattr(plg, "__doc__"):
-                logging.info("- Description: %s" % plg.__doc__)
-            self.plugins[i] = plg.MainObject(*cfg["args"], **cfg["kwargs"])
-        if self.middles:
-            logging.info("Installing middlewares...")
-
+        self.blank_ticks = blank_ticks
 
     def parse_tracks(self):
         self.parsed_msgs.clear()
+
         for _, track in enumerate(self.tracks):
-            logging.info(f"Reading events from track {_:d}: {track}...")
+            logging.info(f"Reading events from track {_}: {track}...")
 
             time_accum = 0
             time_diff_sum = 0
@@ -96,8 +80,10 @@ class Generator(mido.MidiFile):
                 if msg.is_meta:
                     if msg.type == "end_of_track":
                         break
-                    if msg.type == "set_tempo":
+                    elif msg.type == "set_tempo":
                         self.tempo = msg.tempo
+                    elif msg.type == "copyright":
+                        logging.info(f"MIDI copyright information: {msg.text}")
                     continue
                 time = time_accum + msg.time
                 tick_time = round(raw := (time / self.tick_time))
@@ -111,11 +97,21 @@ class Generator(mido.MidiFile):
                             program = 1
                     else:
                         program = 1  # Default
-                    volume_value = (volumes[msg.channel]["value"] if msg.channel in volumes.keys() and self.gvol_enabled
-                                    else 1) * msg.velocity * self.volume_factor
-                    pan_value = pans[msg.channel]["value"] if msg.channel in pans.keys() and self.pan_enabled else 64
-                    pitch_value = 1 + (pitchs[msg.channel]["value"] * self.pitch_factor if msg.channel in pitchs.keys()
-                                                                                           and self.pitch_enabled else 0)
+
+                    if msg.channel in volumes.keys() and self.gvol_enabled:
+                        volume = volumes[msg.channel]["value"]
+                    else:
+                        volume = 1
+                    volume_value = volume * msg.velocity * self.volume_factor
+                    if msg.channel in pans.keys() and self.pan_enabled:
+                        pan_value = pans[msg.channel]["value"]
+                    else:
+                        pan_value = 64
+                    if msg.channel in pitchs.keys() and self.pitch_enabled:
+                        pitch_value = 1 + pitchs[msg.channel]["value"] * self.pitch_factor
+                    else:
+                        pitch_value = 1
+
                     self.parsed_msgs.append({
                         "type": msg.type,
                         "ch": msg.channel,
@@ -126,6 +122,8 @@ class Generator(mido.MidiFile):
                         "pan": pan_value,
                         "pitch": pitch_value,
                     })
+
+
                 elif "prog" in msg.type:
                     time = time_accum + msg.time
                     programs[msg.channel] = {"value": msg.program, "time": tick_time}
@@ -145,7 +143,7 @@ class Generator(mido.MidiFile):
                     pass
                 time_accum += msg.time
                 for plugin in self.middles:
-                    plugin.read(self)
+                    plugin.exec(self)
 
         self.parsed_msgs.sort(key=lambda n: n["tick"])
         logging.debug(f"Average round difference: {time_diff_sum / len(self.parsed_msgs)}")
@@ -161,7 +159,11 @@ class Generator(mido.MidiFile):
 
         logging.info(f'Building {len(self.parsed_msgs)} event(s) parsed。')
 
-        for self.tick in range(self.parsed_msgs[-1]["tick"] + 1):
+        self.end_tick = 0
+        for msg in self.parsed_msgs:
+            if (t := msg["tick"]) > self.end_tick:
+                self.end_tick = t
+        for self.tick in range(-self.blank_ticks, self.end_tick + 1):
             self.build_index = self.build_count % self.wrap_length
             self.wrap_index = self.build_count // self.wrap_length
 
@@ -198,7 +200,7 @@ class Generator(mido.MidiFile):
                     self.y_index += 1
 
             for plugin in self.plugins:
-                plugin.read(self)
+                plugin.exec(self)
 
             self.build_count += 1
             self.y_index = 0
