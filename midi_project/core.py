@@ -12,7 +12,7 @@ import mido
 
 MIDI_DIR = r"D:\MIDITrail\only_my_railgun_guitar.mid"  # Where you save your midi file.
 
-GAME_DIR = r"D:\Minecraft\.minecraft\versions\1.15.2"  # Your game directory
+GAME_DIR = r"D:\Minecraft\.minecraft\versions\fabric-loader-0.8.2+build.194-1.14.4"  # Your game directory
 WORLD_DIR = r"Tester"  # Your world name
 DATA_DIR = os.path.join(GAME_DIR, "saves", WORLD_DIR)  # NEVER CHANGE THIS
 
@@ -37,9 +37,9 @@ PLUGINS = [
 
 
 class Generator(mido.MidiFile):
-    def __init__(self, fp, wrap_length=64, wrap_axis="x", tick_time=50, drum_enabled=False, pan_enabled=True,
+    def __init__(self, fp, wrap_length=128, wrap_axis="x", tick_time=50, drum_enabled=False, pan_enabled=True,
                  gvol_enabled=True, pitch_enabled=True, pitch_factor=2.5E-4, volume_factor=1, plugins=None,
-                 middles=None, blank_ticks=0):
+                 middles=None, blank_ticks=90):
         if plugins is None:
             plugins = []
         if middles is None:

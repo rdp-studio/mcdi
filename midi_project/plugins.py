@@ -85,26 +85,42 @@ class PianoFall(object):
     __author__ = "kworker"
     __doc__ = """Using particles to show a piano waterfall"""
 
-    def __init__(self, front_tick=80, sum_y=100, back_shift=0):
+    def __init__(self, front_tick=90, sum_y=100, back_shift=0):
         self.front_tick = front_tick
         self.sum_y = sum_y
         self.back_shift = back_shift
+        self.sustain_notes = []
 
     def exec(self, generator):
+        generator.set_cmd_block(x_shift=generator.build_index, y_shift=generator.y_index, z_shift=generator.wrap_index,
+                                command=f"execute as @e[name={generator.tick - self.front_tick},type=minecraft:falling_b"
+                                        f"lock] at @s run particle minecraft:end_rod ~ ~ ~ 0.25 0.25 0.25 0.1 100 force")
+        generator.y_index += 1
         generator.set_cmd_block(x_shift=generator.build_index, y_shift=generator.y_index, z_shift=generator.wrap_index,
                                 command=f"kill @e[name={generator.tick - self.front_tick},type=minecraft:falling_block]")
         generator.y_index += 1
 
         on_notes = list(filter(lambda x: x["type"] == "note_on" and x["tick"] == generator.tick + self.front_tick,
                                generator.parsed_msgs))
-        for note in on_notes:
-            note_shift = 128 - (note["note"] - self.back_shift)
-            mapping = ["white", "orange", "magenta", "light_blue", "yellow", "lime", "pink", "gray",
-                       "light_gray", "cyan", "purple", "blue", "brown", "green", "red", "black"]
-            block_name = f'{mapping[note["ch"] - 1]}_concrete'
-            summon_cmd = f'summon minecraft:falling_block ~{-generator.build_index + note_shift} {self.sum_y} ' \
-                         f'~{-generator.wrap_index - 1} {{BlockState:{{Name:\\\"{block_name}\\\"}}, Time:1, ' \
-                         f'CustomName:\'\\\"{generator.tick}\\\"\'}}'
+        off_notes = list(filter(lambda x: x["type"] == "note_off" and x["tick"] == generator.tick + self.front_tick,
+                                generator.parsed_msgs))
+        self.sustain_notes.extend(on_notes)
+        for off_note in off_notes:
+            end_notes = list(filter(lambda x: x["ch"] == off_note["ch"] and x["note"] == off_note["note"],
+                                    self.sustain_notes))
+            for end_note in end_notes:
+                self.sustain_notes.remove(end_note)
+
+        mapping = ["red", "orange", "yellow", "lime", "green", "cyan", "blue", "light_blue",
+                   "purple", "magenta", "pink", "red", "orange", "yellow", "lime", "green"]
+
+        on_notes.extend(self.sustain_notes)
+        for on_note in on_notes:
+            note_shift = 128 - (on_note["note"] - self.back_shift)
+            block_name = f'{mapping[on_note["ch"] - 1]}_concrete'
+            summon_cmd = f'summon minecraft:falling_block ~{-generator.build_index + note_shift} ~' \
+                         f'{self.sum_y - generator.y_index} ~{-generator.wrap_index - 1} {{BlockState: {{' \
+                         f'Name: \\\"{block_name}\\\"}}, Time: 1, CustomName: \'\\\"{generator.tick}\\\"\'}}'
             generator.set_cmd_block(x_shift=generator.build_index, y_shift=generator.y_index,
                                     z_shift=generator.wrap_index, command=summon_cmd)
             generator.y_index += 1
