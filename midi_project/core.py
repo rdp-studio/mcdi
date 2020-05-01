@@ -18,7 +18,7 @@ WORLD_DIR = r"Tester"  # Your world name
 DATA_DIR = os.path.join(GAME_DIR, "saves", WORLD_DIR)  # NEVER CHANGE THIS
 
 TICK_RATE = 60  # The higher, the faster
-EXPECTED_LEN = 87  # Overrides the tick rate, set to 0 to disable
+EXPECTED_LEN = 256  # Overrides the tick rate, set to 0 to disable
 TOLERANCE = 3  # Works with expected length
 STEP = 0.05  # Works with expected length
 
@@ -148,8 +148,8 @@ class Generator(mido.MidiFile):
                         logging.info(f"MIDI copyright information: {msg.text}")
                     continue
 
-                time_accum += msg.time
-                tick_time = round(time_accum / self.tick_time)
+                time = time_accum + msg.time
+                tick_time = round(time / self.tick_time)
 
                 if "note" in msg.type:
                     if msg.channel == 9:
@@ -188,10 +188,10 @@ class Generator(mido.MidiFile):
                     })
 
                 elif "prog" in msg.type:
-                    time_accum += msg.time
+                    time = time_accum + msg.time
                     programs[msg.channel] = {"value": msg.program + 1, "time": tick_time}
                 elif "control" in msg.type:
-                    time_accum += msg.time
+                    time = time_accum + msg.time
                     if msg.control == 7:
                         volumes[msg.channel] = {"value": msg.value / 127, "time": tick_time}
                     elif msg.control == 121:
@@ -200,10 +200,12 @@ class Generator(mido.MidiFile):
                     elif msg.control == 10:
                         pans[msg.channel] = {"value": msg.value, "time": tick_time}
                 elif "pitch" in msg.type:
-                    time_accum += msg.time
+                    time = time_accum + msg.time
                     pitchs[msg.channel] = {"value": msg.pitch, "time": tick_time}
                 else:
                     pass
+
+                time_accum += msg.time
 
                 for plugin in self.middles:
                     plugin.exec(self)
@@ -221,7 +223,7 @@ class Generator(mido.MidiFile):
 
         logging.info(f'Building {len(self.loaded_msgs)} event(s) parsed。')
 
-        self.end_tick = max(self.loaded_msgs, key=lambda x: x["tick"])
+        self.end_tick = max(self.loaded_msgs, key=lambda x: x["tick"])["tick"]
         for self.tick in range(-self.blank_ticks, self.end_tick + 1):
             self.build_index = self.build_count % self.wrap_length
             self.wrap_index = self.build_count // self.wrap_length
