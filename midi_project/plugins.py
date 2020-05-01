@@ -8,7 +8,7 @@ class Progress(object):
         self.color = color
 
     def exec(self, generator):
-        self.end_tick = generator.loaded_msgs[-1]["tick"]
+        self.end_tick = max(generator.loaded_msgs, key=lambda x: x["tick"])
         if generator.tick == 0:
             cmd = f"bossbar add {self.pk} {{\\\"text\\\": \\\"{self.text}\\\"}}"
             generator.set_cmd_block(x_shift=generator.build_index, y_shift=generator.y_index,

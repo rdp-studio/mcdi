@@ -11,7 +11,7 @@ from math import ceil, floor
 
 import mido
 
-MIDI_DIR = r"D:\MIDITrail\umaru_op.mid"  # Where you save your midi file.
+MIDI_DIR = r"D:\MIDITrail\MIDI\sister's_noise.mid"  # Where you save your midi file.
 
 GAME_DIR = r"D:\Minecraft\.minecraft\versions\fabric-loader-0.8.2+build.194-1.14.4"  # Your game directory
 WORLD_DIR = r"Tester"  # Your world name
@@ -221,7 +221,7 @@ class Generator(mido.MidiFile):
 
         logging.info(f'Building {len(self.loaded_msgs)} event(s) parsed。')
 
-        self.end_tick = self.loaded_msgs[-1]["tick"]
+        self.end_tick = max(self.loaded_msgs, key=lambda x: x["tick"])
         for self.tick in range(-self.blank_ticks, self.end_tick + 1):
             self.build_index = self.build_count % self.wrap_length
             self.wrap_index = self.build_count // self.wrap_length
@@ -260,7 +260,7 @@ class Generator(mido.MidiFile):
             self.y_index = 0
 
             if self.tick % 5E2 == 0:
-                logging.info(f"Built {self.tick} tick(s), {self.loaded_msgs[-1]['tick'] + 1} tick(s) in all.")
+                logging.info(f"Built {self.tick} tick(s), {self.end_tick + 1} tick(s) in all.")
             self.tick_cache.clear()
 
         logging.info("Build process finished.")
