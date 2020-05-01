@@ -1,6 +1,6 @@
 class Progress(object):
     __author__ = "kworker"
-    __doc__ = """A simple progressbar that's enough."""
+    __doc__ = """Show a progress bar"""
 
     def __init__(self, pk=0, text="kworker", color="yellow"):
         self.pk = pk
@@ -8,7 +8,7 @@ class Progress(object):
         self.color = color
 
     def exec(self, generator):
-        self.end_tick = generator.parsed_msgs[-1]["tick"]
+        self.end_tick = generator.loaded_msgs[-1]["tick"]
         if generator.tick == 0:
             cmd = f"bossbar add {self.pk} {{\\\"text\\\": \\\"{self.text}\\\"}}"
             generator.set_cmd_block(x_shift=generator.build_index, y_shift=generator.y_index,
@@ -58,7 +58,7 @@ class Lightning(object):
 
 class Particle(object):
     __author__ = "kworker"
-    __doc__ = """Show some fun particles"""
+    __doc__ = """Show some particles"""
 
     def __init__(self, particle="end_rod", x_shift=0, y_shift=0, z_shift=0,
                  dx=0, dy=1, dz=0, speed=1, count=1, additional=()):
@@ -79,7 +79,7 @@ class Particle(object):
 
 class PianoFall(object):
     __author__ = "kworker"
-    __doc__ = """Using particles to show a piano waterfall"""
+    __doc__ = """Using falling blocks to show a piano fall"""
 
     def __init__(self, front_tick=90, summon_height=100, note_shift=0, front_shift=1, reversed=False, sustain=False):
         self.front_tick = front_tick
@@ -100,23 +100,22 @@ class PianoFall(object):
         generator.y_index += 1
 
         on_notes = list(filter(lambda x: x["type"] == "note_on" and x["tick"] == generator.tick + self.front_tick,
-                               generator.parsed_msgs))
-        off_notes = list(filter(lambda x: x["type"] == "note_off" and x["tick"] == generator.tick + self.front_tick,
-                                generator.parsed_msgs))
-        self.sustain_notes.extend(on_notes)
-        for off_note in off_notes:
-            end_notes = list(filter(lambda x: x["ch"] == off_note["ch"] and x["note"] == off_note["note"],
-                                    self.sustain_notes))
-            for end_note in end_notes:
-                self.sustain_notes.remove(end_note)
+                               generator.loaded_msgs))
+        if self.sustain:  # Sustained only
+            self.sustain_notes.extend(on_notes)
+            for off_note in filter(lambda x: x["type"] == "note_off" and x["tick"] == generator.tick + self.front_tick,
+                                   generator.loaded_msgs):
+                map(lambda end_note: self.sustain_notes.remove(end_note),
+                    filter(
+                        lambda x: x["ch"] == off_note["ch"] and x["note"] == off_note["note"], self.sustain_notes
+                    ))
 
-        mapping = ["red", "orange", "yellow", "lime", "green", "cyan", "blue", "light_blue",
-                   "purple", "magenta", "pink", "red", "orange", "yellow", "lime", "green"]
+        mapping = ["red", "orange", "yellow", "lime", "light_blue", "purple", "magenta", "pink"] * 4
 
-        if self.sustain:
+        if self.sustain:  # Sustained only
             on_notes.extend(self.sustain_notes)
         for on_note in on_notes:
-            block_name = f'{mapping[on_note["ch"] - 1]}_concrete'
+            block_name = f'{mapping[on_note["ch"] - 1]}_stained_glass'
             if self.reversed:
                 note_shift = 128 - (on_note["note"] - self.note_shift)
                 summon_cmd = f'summon minecraft:falling_block ~{-generator.build_index + note_shift} ~' \
@@ -124,7 +123,7 @@ class PianoFall(object):
                              f'{{BlockState: {{Name: \\\"{block_name}\\\"}}, Time: 1, CustomName: ' \
                              f'\'\\\"{generator.tick}\\\"\'}}'
             else:
-                max_tick = generator.parsed_msgs[-1]["tick"]
+                max_tick = generator.loaded_msgs[-1]["tick"]
                 wrap_sum = max_tick // generator.wrap_length + 1
                 note_shift = on_note["note"] - self.note_shift
                 summon_cmd = f'summon minecraft:falling_block ~{-generator.build_index + note_shift} ~' \
@@ -134,4 +133,36 @@ class PianoFall(object):
                              f'\'\\\"{generator.tick}\\\"\'}}'
             generator.set_cmd_block(x_shift=generator.build_index, y_shift=generator.y_index,
                                     z_shift=generator.wrap_index, command=summon_cmd)
+            generator.y_index += 1
+
+
+from json import dumps
+
+
+class Title(object):
+    __author__ = "kworker"
+    __doc__ = """Using title command to show some titles"""
+
+    def __init__(self, titles):
+        self.titles = titles
+
+    def exec(self, generator):
+        if not hasattr(self, "end_tick"):
+            self.end_tick = generator.loaded_msgs[-1]["tick"]
+
+        this_titles = list(filter(
+            lambda x: (x["tick"] == generator.tick) if x["tick"] >= 0 else (
+                    x["tick"] == generator.tick - self.end_tick + 1),
+            self.titles
+        ))
+
+        for this_title in this_titles:
+            del this_title["tick"]
+            title_type = this_title["type"]
+            del this_title["type"]
+
+            json = dumps(this_title, ensure_ascii=False).replace('"', '\\"')
+            title_cmd = f"title @a {title_type} {json}"
+            generator.set_cmd_block(x_shift=generator.build_index, y_shift=generator.y_index,
+                                    z_shift=generator.wrap_index, command=title_cmd)
             generator.y_index += 1

@@ -35,7 +35,7 @@ class Directions(Enum):
 PIC_DIR = r"D:\桌面\OIP.jpg"  # Where you save your picture file.
 
 GAME_DIR = r"D:\Minecraft\.minecraft\versions\fabric-loader-0.8.2+build.194-1.14.4"  # Your game directory
-WORLD_DIR = r"Higher"  # Your world name
+WORLD_DIR = r"Tester"  # Your world name
 DATA_DIR = os.path.join(GAME_DIR, "saves", WORLD_DIR)  # NEVER CHANGE THIS
 
 # <!-- NEVER CHANGE THESE
@@ -154,7 +154,10 @@ class Generator(object):
             logging.warning("Notice: please try this command as your picture function is longer than 65536 line(s).")
             logging.info("Try this: /gamerule maxCommandChainLength %d" % (length + 1))  # Too long
 
-        os.makedirs(os.path.join(wp, r"datapacks\MCDI\data\mcdi\functions"), exist_ok=True)
+        if os.path.exists(wp):
+            os.makedirs(os.path.join(wp, r"datapacks\MCDI\data\mcdi\functions"), exist_ok=True)
+        else:
+            raise FileNotFoundError("World path or Minecraft path does not exist!")
         with open(os.path.join(wp, r"datapacks\MCDI\pack.mcmeta"), "w") as file:
             file.write('{"pack":{"pack_format":233,"description":"Made by MCDI, a project by kworker(FrankYang)."}}')
         with open(os.path.join(wp, r"datapacks\MCDI\data\mcdi\functions\picture.mcfunction"), "w") as file:

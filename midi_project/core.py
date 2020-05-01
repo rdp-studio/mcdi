@@ -11,16 +11,16 @@ from math import ceil, floor
 
 import mido
 
-MIDI_DIR = r"D:\下载\higher.mid"  # Where you save your midi file.
+MIDI_DIR = r"D:\MIDITrail\umaru_op.mid"  # Where you save your midi file.
 
 GAME_DIR = r"D:\Minecraft\.minecraft\versions\fabric-loader-0.8.2+build.194-1.14.4"  # Your game directory
-WORLD_DIR = r"Higher"  # Your world name
+WORLD_DIR = r"Tester"  # Your world name
 DATA_DIR = os.path.join(GAME_DIR, "saves", WORLD_DIR)  # NEVER CHANGE THIS
 
-TICK_RATE = 10  # The higher, the faster
-EXPECTED_LEN = 222  # Overrides the tick rate, set to 0 to disable
-TOLERANCE = 10  # Works with expected length
-STEP = 0.1  # Works with expected length
+TICK_RATE = 60  # The higher, the faster
+EXPECTED_LEN = 87  # Overrides the tick rate, set to 0 to disable
+TOLERANCE = 3  # Works with expected length
+STEP = 0.05  # Works with expected length
 
 PAN_ENABLED = True  # Whether you want to use the pan or not
 GLOBAL_VOLUME_ENABLED = True  # Whether you want to use the global volume or not
@@ -59,12 +59,12 @@ class Generator(mido.MidiFile):
         self.plugins = list(plugins)
         self.middles = list(middles)
 
-        self.parsed_msgs = list()
+        self.loaded_msgs = list()
         self.built_cmds = list()
         self.tempo = 5E5
         self.blank_ticks = blank_ticks
 
-    def analysis(self, expected_len, tolerance=10, step=0.1, strict=False):
+    def tick_analysis(self, expected_len, tolerance=10, step=0.1, strict=False):
         max_tick = 0
         logging.info("Calculating maximum and minimum tick rate...")
         for _, track in enumerate(self.tracks):
@@ -73,14 +73,14 @@ class Generator(mido.MidiFile):
             max_tick = max(max_tick, accum)
         max_allow = 1 / ((expected_len - tolerance) * 20 / max_tick)
         min_allow = 1 / ((expected_len + tolerance) * 20 / max_tick)
-        logging.info(f"Maximum and minimum tick rate: {max_allow}, {min_allow}")
+        logging.debug(f"Maximum and minimum tick rate: {max_allow}, {min_allow}")
 
         min_time_diff = 1
         best_tick_rate = 0
         i = ceil(min_allow) if strict else floor(min_allow)
 
         while i < (floor(max_allow) if strict else ceil(max_allow)):
-            logging.info(f"Trying tick rate: {i} between the limitation...")
+            logging.debug(f"Trying tick rate: {i} within the limitation...")
             time_diff_sum = 0
             message_sum = 0
             for _, track in enumerate(self.tracks):
@@ -90,6 +90,7 @@ class Generator(mido.MidiFile):
                     diff = abs(round(raw := (time / i)) - raw)
                     time_diff_sum += diff
                     message_sum += 1
+                    time_accum += message.time
             time_diff_sum /= message_sum
             logging.info(f"Average round difference: {time_diff_sum}")
             if time_diff_sum < min_time_diff:
@@ -100,15 +101,39 @@ class Generator(mido.MidiFile):
         logging.info(f"Best tick rate found: {best_tick_rate}")
         self.tick_time = best_tick_rate
 
+    def long_note_analysis(self, threshold=40):
+        sustain_notes = []
+        sustain_off_notes = []
+
+        for i, track in enumerate(self.tracks):
+            logging.info(f"Reading events from track {i}: {track}...")
+            time_accum = 0
+            for msg in track:
+                time_accum += msg.time
+                if msg.type == "note_on":
+                    vars(msg)["abs_time"] = time_accum
+                    sustain_notes.append(msg)
+                elif msg.type == "note_off":
+                    for off_note in filter(lambda x: x.channel == msg.channel and x.note == msg.note, sustain_notes):
+                        vars(off_note)["duration"] = time_accum - off_note.abs_time
+                        sustain_notes.remove(off_note) if off_note in sustain_notes else ...
+                        vars(off_note)["L"] = True if off_note.duration >= threshold else ...
+                        vars(msg)["L"] = True if off_note.duration >= threshold else ...
+            logging.info(f"Parsed note duration(s) in track {i}.")
 
     def load_events(self):
-        self.parsed_msgs.clear()
+        self.loaded_msgs.clear()
+
+        long_safe = (
+            1, 2, 3, 4, 5, 6, 7, 8, 17, 18, 19, 20, 21, 22, 23, 24, 25, 26, 27, 28, 29, 30, 31, 32, 33, 34, 35, 36, 37,
+            38, 39, 40, 41, 42, 43, 44, 45, 49, 50, 51, 52, 53, 54, 55, 57, 58, 59, 60, 61, 62, 63, 64, 65, 66, 67, 68,
+            69, 70, 71, 72, 73, 74, 75, 76, 77, 78, 79, 80, 81, 82, 83, 84, 85, 86, 87, 88, 89, 90, 91, 92, 93, 94, 95,
+            96, 97, 98, 99, 100, 101, 102, 103, 104, 105, 106, 107, 110, 111, 112, 120)
 
         for _, track in enumerate(self.tracks):
             logging.info(f"Reading events from track {_}: {track}...")
 
             time_accum = 0
-            time_diff_sum = 0
             programs = dict()
             volumes = dict()
             pans = dict()
@@ -124,9 +149,8 @@ class Generator(mido.MidiFile):
                         logging.info(f"MIDI copyright information: {msg.text}")
                     continue
 
-                time = time_accum + msg.time
-                tick_time = round(raw := (time / self.tick_time))
-                time_diff_sum += abs(raw - tick_time)
+                time_accum += msg.time
+                tick_time = round(time_accum / self.tick_time)
 
                 if "note" in msg.type:
                     if msg.channel == 9:
@@ -150,7 +174,10 @@ class Generator(mido.MidiFile):
                     else:
                         pitch_value = 1
 
-                    self.parsed_msgs.append({
+                    if hasattr(msg, "L") and program in long_safe:
+                        program = str(program) + "c"
+
+                    self.loaded_msgs.append({
                         "type": msg.type,
                         "ch": msg.channel,
                         "prog": program,
@@ -162,10 +189,10 @@ class Generator(mido.MidiFile):
                     })
 
                 elif "prog" in msg.type:
-                    time = time_accum + msg.time
+                    time_accum += msg.time
                     programs[msg.channel] = {"value": msg.program + 1, "time": tick_time}
                 elif "control" in msg.type:
-                    time = time_accum + msg.time
+                    time_accum += msg.time
                     if msg.control == 7:
                         volumes[msg.channel] = {"value": msg.value / 127, "time": tick_time}
                     elif msg.control == 121:
@@ -174,18 +201,16 @@ class Generator(mido.MidiFile):
                     elif msg.control == 10:
                         pans[msg.channel] = {"value": msg.value, "time": tick_time}
                 elif "pitch" in msg.type:
-                    time = time_accum + msg.time
+                    time_accum += msg.time
                     pitchs[msg.channel] = {"value": msg.pitch, "time": tick_time}
                 else:
                     pass
 
-                time_accum += msg.time
                 for plugin in self.middles:
                     plugin.exec(self)
 
-        self.parsed_msgs.sort(key=lambda n: n["tick"])
-        logging.debug(f"Average round difference: {time_diff_sum / len(self.parsed_msgs)}")
-        logging.info("Parse process finished.")
+        self.loaded_msgs.sort(key=lambda n: n["tick"])
+        logging.info("Load process finished.")
 
     def build_events(self):
         self.built_cmds.clear()
@@ -195,33 +220,28 @@ class Generator(mido.MidiFile):
         self.tick_cache = list()
         self.tick = 0
 
-        logging.info(f'Building {len(self.parsed_msgs)} event(s) parsed。')
+        logging.info(f'Building {len(self.loaded_msgs)} event(s) parsed。')
 
-        self.end_tick = self.parsed_msgs[-1]["tick"]
+        self.end_tick = self.loaded_msgs[-1]["tick"]
         for self.tick in range(-self.blank_ticks, self.end_tick + 1):
             self.build_index = self.build_count % self.wrap_length
             self.wrap_index = self.build_count // self.wrap_length
 
             if (self.build_count + 1) % self.wrap_length == 0:
                 self.set_cmd_block(x_shift=self.build_index, y_shift=self.y_index, z_shift=self.wrap_index, chain=False,
-                                   auto=False,
-                                   command=self.set_redstone_block_code(1 - self.wrap_length, -1, 1))
+                                   auto=False, command=self.set_redstone_block_code(1 - self.wrap_length, -1, 1))
                 self.y_index += 1
             else:
                 self.set_cmd_block(x_shift=self.build_index, y_shift=self.y_index, z_shift=self.wrap_index, chain=False,
-                                   auto=False,
-                                   command=self.set_redstone_block_code(1, -1, 0))
+                                   auto=False, command=self.set_redstone_block_code(1, -1, 0))
                 self.y_index += 1
 
             self.set_cmd_block(x_shift=self.build_index, y_shift=self.y_index, z_shift=self.wrap_index,
                                command=self.set_air_code(0, -2, 0))
             self.y_index += 1
 
-            try:
-                while self.parsed_msgs[0]["tick"] == self.tick:
-                    self.tick_cache.append(self.parsed_msgs.pop(0))
-            except IndexError:
-                break
+            while (m := self.loaded_msgs) and m[0]["tick"] == self.tick:
+                self.tick_cache.append(self.loaded_msgs.pop(0))
 
             for message in self.tick_cache:
                 if message["type"] == "note_on":
@@ -241,7 +261,7 @@ class Generator(mido.MidiFile):
             self.y_index = 0
 
             if self.tick % 5E2 == 0:
-                logging.info(f"Built {self.tick} tick(s), {self.parsed_msgs[-1]['tick'] + 1} tick(s) in all.")
+                logging.info(f"Built {self.tick} tick(s), {self.loaded_msgs[-1]['tick'] + 1} tick(s) in all.")
             self.tick_cache.clear()
 
         logging.info("Build process finished.")
@@ -253,7 +273,10 @@ class Generator(mido.MidiFile):
             logging.warning("Notice: please try this command as your music function is longer than 65536 line(s).")
             logging.info("Try this: /gamerule maxCommandChainLength %d" % (length + 1))  # Too long
 
-        os.makedirs(os.path.join(wp, r"datapacks\MCDI\data\mcdi\functions"), exist_ok=True)
+        if os.path.exists(wp):
+            os.makedirs(os.path.join(wp, r"datapacks\MCDI\data\mcdi\functions"), exist_ok=True)
+        else:
+            raise FileNotFoundError("World path or Minecraft path does not exist!")
         with open(os.path.join(wp, r"datapacks\MCDI\pack.mcmeta"), "w") as file:
             file.write('{"pack":{"pack_format":233,"description":"Made by MCDI, a project by kworker(FrankYang)."}}')
         with open(os.path.join(wp, r"datapacks\MCDI\data\mcdi\functions\music.mcfunction"), "w") as file:
@@ -298,7 +321,8 @@ if __name__ == '__main__':
                     pitch_enabled=PITCH_ENABLED, pitch_factor=PITCH_FACTOR, volume_factor=VOLUME_FACTOR,
                     plugins=PLUGINS, middles=MIDDLEWARES)
     if 0 < EXPECTED_LEN < 65536:  # Reasonable
-        gen.analysis(EXPECTED_LEN, TOLERANCE, STEP)
+        gen.tick_analysis(EXPECTED_LEN, TOLERANCE, STEP)
+    gen.long_note_analysis(40)
     gen.load_events()
     gen.build_events()
     gen.write_func(DATA_DIR)
