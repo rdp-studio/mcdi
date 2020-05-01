@@ -8,11 +8,7 @@ class Progress(object):
         self.color = color
 
     def exec(self, generator):
-        if not hasattr(self, "max_tick"):
-            self.end_tick = 0
-            for msg in generator.parsed_msgs:
-                if (t := msg["tick"]) > self.end_tick:
-                    self.end_tick = t
+        self.end_tick = generator.parsed_msgs[-1]["tick"]
         if generator.tick == 0:
             cmd = f"bossbar add {self.pk} {{\\\"text\\\": \\\"{self.text}\\\"}}"
             generator.set_cmd_block(x_shift=generator.build_index, y_shift=generator.y_index,
@@ -85,10 +81,13 @@ class PianoFall(object):
     __author__ = "kworker"
     __doc__ = """Using particles to show a piano waterfall"""
 
-    def __init__(self, front_tick=90, sum_y=100, back_shift=0):
+    def __init__(self, front_tick=90, summon_height=100, note_shift=0, front_shift=1, reversed=False, sustain=False):
         self.front_tick = front_tick
-        self.sum_y = sum_y
-        self.back_shift = back_shift
+        self.sum_y = summon_height
+        self.note_shift = note_shift
+        self.front_shift = front_shift
+        self.reversed = reversed
+        self.sustain = sustain
         self.sustain_notes = []
 
     def exec(self, generator):
@@ -114,13 +113,25 @@ class PianoFall(object):
         mapping = ["red", "orange", "yellow", "lime", "green", "cyan", "blue", "light_blue",
                    "purple", "magenta", "pink", "red", "orange", "yellow", "lime", "green"]
 
-        on_notes.extend(self.sustain_notes)
+        if self.sustain:
+            on_notes.extend(self.sustain_notes)
         for on_note in on_notes:
-            note_shift = 128 - (on_note["note"] - self.back_shift)
             block_name = f'{mapping[on_note["ch"] - 1]}_concrete'
-            summon_cmd = f'summon minecraft:falling_block ~{-generator.build_index + note_shift} ~' \
-                         f'{self.sum_y - generator.y_index} ~{-generator.wrap_index - 1} {{BlockState: {{' \
-                         f'Name: \\\"{block_name}\\\"}}, Time: 1, CustomName: \'\\\"{generator.tick}\\\"\'}}'
+            if self.reversed:
+                note_shift = 128 - (on_note["note"] - self.note_shift)
+                summon_cmd = f'summon minecraft:falling_block ~{-generator.build_index + note_shift} ~' \
+                             f'{self.sum_y - generator.y_index} ~{-generator.wrap_index - 1 - self.front_shift} ' \
+                             f'{{BlockState: {{Name: \\\"{block_name}\\\"}}, Time: 1, CustomName: ' \
+                             f'\'\\\"{generator.tick}\\\"\'}}'
+            else:
+                max_tick = generator.parsed_msgs[-1]["tick"]
+                wrap_sum = max_tick // generator.wrap_length + 1
+                note_shift = on_note["note"] - self.note_shift
+                summon_cmd = f'summon minecraft:falling_block ~{-generator.build_index + note_shift} ~' \
+                             f'{self.sum_y - generator.y_index} ' \
+                             f'~{wrap_sum - generator.wrap_index + 1 + self.front_shift}' \
+                             f' {{BlockState: {{Name: \\\"{block_name}\\\"}}, Time: 1, CustomName:' \
+                             f'\'\\\"{generator.tick}\\\"\'}}'
             generator.set_cmd_block(x_shift=generator.build_index, y_shift=generator.y_index,
                                     z_shift=generator.wrap_index, command=summon_cmd)
             generator.y_index += 1

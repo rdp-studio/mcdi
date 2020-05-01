@@ -7,19 +7,22 @@ Minecraft 1.15.x
 
 import logging
 import os
+from math import ceil, floor
 
 import mido
 
-MIDI_DIR = r"D:\MIDITrail\only_my_railgun_guitar.mid"  # Where you save your midi file.
+MIDI_DIR = r"D:\下载\higher.mid"  # Where you save your midi file.
 
 GAME_DIR = r"D:\Minecraft\.minecraft\versions\fabric-loader-0.8.2+build.194-1.14.4"  # Your game directory
-WORLD_DIR = r"Tester"  # Your world name
+WORLD_DIR = r"Higher"  # Your world name
 DATA_DIR = os.path.join(GAME_DIR, "saves", WORLD_DIR)  # NEVER CHANGE THIS
 
-TICK_RATE = 60  # The higher, the faster
+TICK_RATE = 10  # The higher, the faster
+EXPECTED_LEN = 222  # Overrides the tick rate, set to 0 to disable
+TOLERANCE = 10  # Works with expected length
+STEP = 0.1  # Works with expected length
 
-DRUM_ENABLED = True  # Whether you want to use the drum or not
-PAN_ENABLED = True  # Whether you want to use the pan value or not
+PAN_ENABLED = True  # Whether you want to use the pan or not
 GLOBAL_VOLUME_ENABLED = True  # Whether you want to use the global volume or not
 PITCH_ENABLED = True  # Whether you want to use the pitch value or not
 PITCH_FACTOR = 0.05  # How much do you want the pitch value to be
@@ -37,9 +40,8 @@ PLUGINS = [
 
 
 class Generator(mido.MidiFile):
-    def __init__(self, fp, wrap_length=128, wrap_axis="x", tick_time=50, drum_enabled=False, pan_enabled=True,
-                 gvol_enabled=True, pitch_enabled=True, pitch_factor=2.5E-4, volume_factor=1, plugins=None,
-                 middles=None, blank_ticks=90):
+    def __init__(self, fp, wrap_length=128, wrap_axis="x", tick_time=50, pan_enabled=True, gvol_enabled=True,
+                 pitch_enabled=True, pitch_factor=2.5E-4, volume_factor=1, plugins=None, middles=None, blank_ticks=90):
         if plugins is None:
             plugins = []
         if middles is None:
@@ -49,7 +51,6 @@ class Generator(mido.MidiFile):
         self.wrap_length = wrap_length
         self.wrap_axis = wrap_axis
         self.tick_time = tick_time
-        self.drum_enabled = drum_enabled
         self.pan_enabled = pan_enabled
         self.gvol_enabled = gvol_enabled
         self.pitch_enabled = pitch_enabled
@@ -63,7 +64,44 @@ class Generator(mido.MidiFile):
         self.tempo = 5E5
         self.blank_ticks = blank_ticks
 
-    def parse_tracks(self):
+    def analysis(self, expected_len, tolerance=10, step=0.1, strict=False):
+        max_tick = 0
+        logging.info("Calculating maximum and minimum tick rate...")
+        for _, track in enumerate(self.tracks):
+            logging.info(f"Reading events from track {_}: {track}...")
+            accum = sum(map(lambda x: x.time, track))
+            max_tick = max(max_tick, accum)
+        max_allow = 1 / ((expected_len - tolerance) * 20 / max_tick)
+        min_allow = 1 / ((expected_len + tolerance) * 20 / max_tick)
+        logging.info(f"Maximum and minimum tick rate: {max_allow}, {min_allow}")
+
+        min_time_diff = 1
+        best_tick_rate = 0
+        i = ceil(min_allow) if strict else floor(min_allow)
+
+        while i < (floor(max_allow) if strict else ceil(max_allow)):
+            logging.info(f"Trying tick rate: {i} between the limitation...")
+            time_diff_sum = 0
+            message_sum = 0
+            for _, track in enumerate(self.tracks):
+                time_accum = 0
+                for message in track:
+                    time = time_accum + message.time
+                    diff = abs(round(raw := (time / i)) - raw)
+                    time_diff_sum += diff
+                    message_sum += 1
+            time_diff_sum /= message_sum
+            logging.info(f"Average round difference: {time_diff_sum}")
+            if time_diff_sum < min_time_diff:
+                min_time_diff = time_diff_sum
+                best_tick_rate = i
+            i += step
+
+        logging.info(f"Best tick rate found: {best_tick_rate}")
+        self.tick_time = best_tick_rate
+
+
+    def load_events(self):
         self.parsed_msgs.clear()
 
         for _, track in enumerate(self.tracks):
@@ -85,16 +123,16 @@ class Generator(mido.MidiFile):
                     elif msg.type == "copyright":
                         logging.info(f"MIDI copyright information: {msg.text}")
                     continue
+
                 time = time_accum + msg.time
                 tick_time = round(raw := (time / self.tick_time))
                 time_diff_sum += abs(raw - tick_time)
+
                 if "note" in msg.type:
-                    if msg.channel == 10:
+                    if msg.channel == 9:
                         program = 0  # Force drum
                     elif msg.channel in programs.keys():
-                        program = programs[msg.channel]["value"]  # Can be set
-                        if (not self.drum_enabled) and (program == 0):
-                            program = 1
+                        program = programs[msg.channel]["value"]
                     else:
                         program = 1  # Default
 
@@ -123,10 +161,9 @@ class Generator(mido.MidiFile):
                         "pitch": pitch_value,
                     })
 
-
                 elif "prog" in msg.type:
                     time = time_accum + msg.time
-                    programs[msg.channel] = {"value": msg.program, "time": tick_time}
+                    programs[msg.channel] = {"value": msg.program + 1, "time": tick_time}
                 elif "control" in msg.type:
                     time = time_accum + msg.time
                     if msg.control == 7:
@@ -141,6 +178,7 @@ class Generator(mido.MidiFile):
                     pitchs[msg.channel] = {"value": msg.pitch, "time": tick_time}
                 else:
                     pass
+
                 time_accum += msg.time
                 for plugin in self.middles:
                     plugin.exec(self)
@@ -149,7 +187,7 @@ class Generator(mido.MidiFile):
         logging.debug(f"Average round difference: {time_diff_sum / len(self.parsed_msgs)}")
         logging.info("Parse process finished.")
 
-    def build_parsed(self):
+    def build_events(self):
         self.built_cmds.clear()
 
         self.build_count = 0
@@ -159,10 +197,7 @@ class Generator(mido.MidiFile):
 
         logging.info(f'Building {len(self.parsed_msgs)} event(s) parsed。')
 
-        self.end_tick = 0
-        for msg in self.parsed_msgs:
-            if (t := msg["tick"]) > self.end_tick:
-                self.end_tick = t
+        self.end_tick = self.parsed_msgs[-1]["tick"]
         for self.tick in range(-self.blank_ticks, self.end_tick + 1):
             self.build_index = self.build_count % self.wrap_length
             self.wrap_index = self.build_count // self.wrap_length
@@ -170,16 +205,16 @@ class Generator(mido.MidiFile):
             if (self.build_count + 1) % self.wrap_length == 0:
                 self.set_cmd_block(x_shift=self.build_index, y_shift=self.y_index, z_shift=self.wrap_index, chain=False,
                                    auto=False,
-                                   command=self.set_red_block_code(1 - self.wrap_length, -1, 1))
+                                   command=self.set_redstone_block_code(1 - self.wrap_length, -1, 1))
                 self.y_index += 1
             else:
                 self.set_cmd_block(x_shift=self.build_index, y_shift=self.y_index, z_shift=self.wrap_index, chain=False,
                                    auto=False,
-                                   command=self.set_red_block_code(1, -1, 0))
+                                   command=self.set_redstone_block_code(1, -1, 0))
                 self.y_index += 1
 
             self.set_cmd_block(x_shift=self.build_index, y_shift=self.y_index, z_shift=self.wrap_index,
-                               command=self.set_air_block_code(0, -2, 0))
+                               command=self.set_air_code(0, -2, 0))
             self.y_index += 1
 
             try:
@@ -212,33 +247,7 @@ class Generator(mido.MidiFile):
         logging.info("Build process finished.")
         logging.debug(f"Estimated duration: {self.tick / 20} second(s)。")
 
-    @staticmethod
-    def play_soma_code(program, note, v=255, pan=64, pitch=1):
-        abs_pan = (pan - 64) / 32
-        l_r = - abs_pan
-        f_b = 2 - abs(abs_pan)
-        rel_v = v / 255
-        return f"execute as @a at @s run playsound {program}.{note} voice @s ^{l_r} ^ ^{f_b} {rel_v} {pitch}"
-
-    @staticmethod
-    def stop_soma_code(program, note):
-        return f"execute as @a at @s run stopsound @s voice {program}.{note}"
-
-    def set_cmd_block(self, x_shift, y_shift, z_shift, chain=True, repeat=False, auto=True, command="", facing="up"):
-        type_def = (("chain_" if chain else "") + ("repeat_" if repeat else "")) * (0 if repeat and auto else 1)
-        auto_def = str(bool(auto)).lower()
-        self.built_cmds.append(f'setblock ~{x_shift} ~{y_shift} ~{z_shift} minecraft:{type_def}command_block[facing=\
-{facing}]{{auto: {auto_def}, Command: "{command}", LastOutput: false, TrackOutput: false}} replace\n')
-
-    @staticmethod
-    def set_red_block_code(x_shift, y_shift, z_shift):
-        return f"setblock ~{x_shift} ~{y_shift} ~{z_shift} minecraft:redstone_block replace"
-
-    @staticmethod
-    def set_air_block_code(x_shift, y_shift, z_shift):
-        return f"setblock ~{x_shift} ~{y_shift} ~{z_shift} minecraft:air replace"
-
-    def write_built(self, wp):
+    def write_func(self, wp):
         logging.info(f"Writing {(length := len(self.built_cmds))} command(s) built.")
         if length >= 65536:
             logging.warning("Notice: please try this command as your music function is longer than 65536 line(s).")
@@ -253,13 +262,43 @@ class Generator(mido.MidiFile):
         logging.debug("To run the music function: '/reload'")
         logging.debug("Then: '/function mcdi:music'")
 
+    @staticmethod
+    def play_soma_code(program, note, v=255, pan=64, pitch=1):
+        abs_pan = (pan - 64) / 32
+        left_shift = - abs_pan
+        front_shift = 2 - abs(abs_pan)
+        relative_v = v / 255
+        return f"execute as @a at @s run playsound {program}.{note} voice @s ^{left_shift} ^ ^{front_shift} " \
+               f"{relative_v} {pitch}"
+
+    @staticmethod
+    def stop_soma_code(program, note):
+        return f"execute as @a at @s run stopsound @s voice {program}.{note}"
+
+    @staticmethod
+    def set_redstone_block_code(x_shift, y_shift, z_shift):
+        return f"setblock ~{x_shift} ~{y_shift} ~{z_shift} minecraft:redstone_block replace"
+
+    @staticmethod
+    def set_air_code(x_shift, y_shift, z_shift):
+        return f"setblock ~{x_shift} ~{y_shift} ~{z_shift} minecraft:air replace"
+
+    def set_cmd_block(self, x_shift, y_shift, z_shift, chain=True, repeat=False, auto=True, command="", facing="up"):
+        type_def = ("chain_" if chain else "") or ("repeat_" if repeat else "")
+        auto_def = "true" if auto else "false"
+        self.built_cmds.append(f'setblock ~{x_shift} ~{y_shift} ~{z_shift} minecraft:{type_def}command_block[facing='
+                               f'{facing}]{{auto: {auto_def}, Command: "{command}", LastOutput: false, TrackOutput: '
+                               f'false}} replace\n')
+
 
 if __name__ == '__main__':
     logging.basicConfig(level=logging.DEBUG,
                         format="%(asctime)s - %(filename)s[line:%(lineno)d] - %(levelname)s: %(message)s")
-    gen = Generator(MIDI_DIR, tick_time=TICK_RATE, drum_enabled=DRUM_ENABLED, pan_enabled=PAN_ENABLED,
-                    gvol_enabled=GLOBAL_VOLUME_ENABLED, pitch_enabled=PITCH_ENABLED, pitch_factor=PITCH_FACTOR,
-                    volume_factor=VOLUME_FACTOR, plugins=PLUGINS, middles=MIDDLEWARES)
-    gen.parse_tracks()
-    gen.build_parsed()
-    gen.write_built(DATA_DIR)
+    gen = Generator(MIDI_DIR, tick_time=TICK_RATE, pan_enabled=PAN_ENABLED, gvol_enabled=GLOBAL_VOLUME_ENABLED,
+                    pitch_enabled=PITCH_ENABLED, pitch_factor=PITCH_FACTOR, volume_factor=VOLUME_FACTOR,
+                    plugins=PLUGINS, middles=MIDDLEWARES)
+    if 0 < EXPECTED_LEN < 65536:  # Reasonable
+        gen.analysis(EXPECTED_LEN, TOLERANCE, STEP)
+    gen.load_events()
+    gen.build_events()
+    gen.write_func(DATA_DIR)

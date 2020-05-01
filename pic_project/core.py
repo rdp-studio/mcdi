@@ -32,10 +32,10 @@ class Directions(Enum):
 
 # -->
 
-PIC_DIR = r"D:\Frank.jpg"  # Where you save your picture file.
+PIC_DIR = r"D:\桌面\OIP.jpg"  # Where you save your picture file.
 
-GAME_DIR = r"D:\Minecraft\.minecraft\versions\1.15.2"  # Your game directory
-WORLD_DIR = r"Template"  # Your world name
+GAME_DIR = r"D:\Minecraft\.minecraft\versions\fabric-loader-0.8.2+build.194-1.14.4"  # Your game directory
+WORLD_DIR = r"Higher"  # Your world name
 DATA_DIR = os.path.join(GAME_DIR, "saves", WORLD_DIR)  # NEVER CHANGE THIS
 
 # <!-- NEVER CHANGE THESE
@@ -169,6 +169,6 @@ if __name__ == '__main__':
         concrete_mapping,
         wool_mapping,
         terracotta_mapping,
-    ], width=256, height=144)
+    ], width=128, height=128)
     gen.build_pixels()
     gen.write_built(DATA_DIR)
