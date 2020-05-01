@@ -103,7 +103,6 @@ class Generator(mido.MidiFile):
 
     def long_note_analysis(self, threshold=40):
         sustain_notes = []
-        sustain_off_notes = []
 
         for i, track in enumerate(self.tracks):
             logging.info(f"Reading events from track {i}: {track}...")
