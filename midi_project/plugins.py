@@ -1,14 +1,17 @@
+from midi_project.core import Generator
+
+
 class Progress(object):
     __author__ = "kworker"
     __doc__ = """Show a progress bar"""
 
-    def __init__(self, pk=0, text="kworker", color="yellow"):
+    def __init__(self, pk=0, text="MCDI", color="yellow"):
         self.pk = pk
         self.text = text
         self.color = color
 
-    def exec(self, generator):
-        self.end_tick = max(generator.loaded_msgs, key=lambda x: x["tick"])["tick"]
+    def exec(self, generator: Generator):
+        self.end_tick = max(generator.loaded_messages, key=lambda x: x["tick"])["tick"]
         if generator.tick == 0:
             cmd = f"bossbar add {self.pk} {{\\\"text\\\": \\\"{self.text}\\\"}}"
             generator.set_cmd_block(x_shift=generator.build_index, y_shift=generator.y_index,
@@ -50,7 +53,7 @@ class Lightning(object):
         pass
 
     @staticmethod
-    def exec(generator):
+    def exec(generator: Generator):
         generator.set_cmd_block(x_shift=generator.build_index, y_shift=generator.y_index, z_shift=generator.wrap_index,
                                 command="summon lightning_bolt")
         generator.y_index += 1
@@ -70,7 +73,7 @@ class Particle(object):
         self.additional = additional
         pass
 
-    def exec(self, generator):
+    def exec(self, generator: Generator):
         generator.set_cmd_block(x_shift=generator.build_index, y_shift=generator.y_index, z_shift=generator.wrap_index,
                                 command=f"particle {self.particle} {' '.join(map(str, self.additional))} ~{self.x_shift}"
                                         f" ~{self.y_shift} ~{self.z_shift} {' '.join(map(str, self.args))} force")
@@ -90,7 +93,7 @@ class PianoFall(object):
         self.sustain = sustain
         self.sustain_notes = []
 
-    def exec(self, generator):
+    def exec(self, generator: Generator):
         generator.set_cmd_block(x_shift=generator.build_index, y_shift=generator.y_index, z_shift=generator.wrap_index,
                                 command=f"execute as @e[name={generator.tick - self.front_tick},type=minecraft:falling_b"
                                         f"lock] at @s run particle minecraft:end_rod ~ ~ ~ 0.25 0.25 0.25 0.1 100 force")
@@ -100,20 +103,21 @@ class PianoFall(object):
         generator.y_index += 1
 
         on_notes = list(filter(lambda x: x["type"] == "note_on" and x["tick"] == generator.tick + self.front_tick,
-                               generator.loaded_msgs))
+                               generator.loaded_messages))
         if self.sustain:  # Sustained only
             self.sustain_notes.extend(on_notes)
             for off_note in filter(lambda x: x["type"] == "note_off" and x["tick"] == generator.tick + self.front_tick,
-                                   generator.loaded_msgs):
-                map(lambda end_note: self.sustain_notes.remove(end_note),
-                    filter(
-                        lambda x: x["ch"] == off_note["ch"] and x["note"] == off_note["note"], self.sustain_notes
-                    ))
+                                   generator.loaded_messages):
+                map(
+                    lambda end_note: self.sustain_notes.remove(end_note),
+                    filter(lambda x: x["ch"] == off_note["ch"] and x["note"] == off_note["note"], self.sustain_notes)
+                )
 
         mapping = ["red", "orange", "yellow", "lime", "light_blue", "purple", "magenta", "pink"] * 4
 
         if self.sustain:  # Sustained only
             on_notes.extend(self.sustain_notes)
+
         for on_note in on_notes:
             block_name = f'{mapping[on_note["ch"] - 1]}_stained_glass'
             if self.reversed:
@@ -123,7 +127,7 @@ class PianoFall(object):
                              f'{{BlockState: {{Name: \\\"{block_name}\\\"}}, Time: 1, CustomName: ' \
                              f'\'\\\"{generator.tick}\\\"\'}}'
             else:
-                max_tick = generator.loaded_msgs[-1]["tick"]
+                max_tick = generator.loaded_messages[-1]["tick"]
                 wrap_sum = max_tick // generator.wrap_length + 1
                 note_shift = on_note["note"] - self.note_shift
                 summon_cmd = f'summon minecraft:falling_block ~{-generator.build_index + note_shift} ~' \
@@ -146,15 +150,11 @@ class Title(object):
     def __init__(self, titles):
         self.titles = titles
 
-    def exec(self, generator):
+    def exec(self, generator: Generator):
         if not hasattr(self, "end_tick"):
-            self.end_tick = generator.loaded_msgs[-1]["tick"]
+            self.end_tick = generator.loaded_messages[-1]["tick"]
 
-        this_titles = list(filter(
-            lambda x: (x["tick"] == generator.tick) if x["tick"] >= 0 else (
-                    x["tick"] == generator.tick - self.end_tick + 1),
-            self.titles
-        ))
+        this_titles = list(filter(lambda x: (x["tick"] == generator.tick - generator.blank_ticks), self.titles))
 
         for this_title in this_titles:
             del this_title["tick"]
