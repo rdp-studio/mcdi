@@ -10,36 +10,14 @@ import logging
 import os
 import time
 
+from pic_project.core import Directions
 from pic_project.core import Generator as Gen
-from pic_project.core import concrete_mapping, wool_mapping, terracotta_mapping, Directions
 from video_project import unattended, video_gen
-
-PIC_DIRS = r"D:\revenge-frames"  # Where you save your image frame files, THAT MUST BE ASCII!!
-
-GAME_DIR = r"D:\Minecraft\.minecraft\versions\1.15.2"  # Your game directory
-WORLD_DIR = r"Template"  # Your world name
-DATA_DIR = os.path.join(GAME_DIR, "saves", WORLD_DIR)  # NEVER CHANGE THIS
-
-FROM = -1  # Useful when you suddenly lost your works
-# Set it below 0 to activate auto mode.
-
-UNATTENDED = True  # Whether you want to use operator or not
-# <!-- These won't work unless you set UNATTENDED to True.
-WAIT_TIME = 3  # The time to wait for the game to reload the picture.
-# -->
-
-VIDEO_GENERATE = True  # Whether you want to use generator or not, needs opencv-python
-# <!-- These won't work unless you set VIDEO_GENERATE to True.
-TEMP_DIR = r"D:\tmp"  # Where to save the temporary files, THAT MUST BE ASCII!!
-GENERATE_DIR = r"D:\revenge.avi"  # Where to save the output
-FPS = 24  # The expecting frame rate
-# -->
 
 
 class Generator(object):
-    def __init__(self, fp, width=256, height=144, from_=0, unattended=True, video_generate=True,
-                 mappings=None, directions=Directions.XY, absolute=True, tp=r"D:\tmp",
-                 op="D:\\", fps=24, wait_time=3):
+    def __init__(self, fp, mappings, width=256, height=144, from_=0, unattended=True, video_generate=True,
+                 directions=Directions.XY, absolute=True, tp=r"D:\tmp", op="D:\\", fps=24, wait_time=3):
         logging.debug("Initializing...")  # Initialize
         self.fp = fp
         self.width = width
@@ -50,10 +28,7 @@ class Generator(object):
         else:  # Just continue
             self.from_ = from_
         # --> <!-- mappings, you can add more if you want
-        if mappings is None:  # Override
-            self.mappings = [concrete_mapping, wool_mapping, terracotta_mapping]
-        else:
-            self.mappings = mappings
+        self.mappings = mappings
         # --> <!-- normally not changed
         self.directions = directions
         self.absolute = absolute
@@ -71,7 +46,7 @@ class Generator(object):
         logging.info("Iterating the source directory...")
 
         frames = list()  # Iterate in the frames' directory
-        for root, _, files in os.walk(PIC_DIRS):
+        for root, _, files in os.walk(self.fp):
             for frame_name in files:
                 frames.append(os.path.join(root, frame_name))
 
@@ -117,8 +92,32 @@ class Generator(object):
 
 
 if __name__ == "__main__":
+    from json import loads
+
+    with open("../pic_project/vanilla_blocks.json") as f:
+        MAPPING = loads(f.read())
+
+    PIC_DIR = r"D:\revenge-frames"  # Where you save your image frame files, THAT MUST BE ASCII!!
+
+    GAME_DIR = r"D:\Minecraft\.minecraft\versions\1.15.2"  # Your game directory
+    WORLD_NAME = r"Template"  # Your world name
+
+    FROM = -1  # Useful when you suddenly lost your works
+    # Set it below 0 to activate auto mode.
+
+    UNATTENDED = True  # Whether you want to use operator or not
+    # <!-- These won't work unless you set UNATTENDED to True.
+    WAIT_TIME = 3  # The time to wait for the game to reload the picture.
+    # -->
+
+    VIDEO_GENERATE = True  # Whether you want to use generator or not, needs opencv-python
+    # <!-- These won't work unless you set VIDEO_GENERATE to True.
+    TEMP_DIR = r"D:\tmp"  # Where to save the temporary files, THAT MUST BE ASCII!!
+    GENERATE_DIR = r"D:\revenge.avi"  # Where to save the output
+    FPS = 24  # The expecting frame rate
+    # -->
     logging.basicConfig(level=logging.INFO,
                         format="%(asctime)s - %(filename)s[line:%(lineno)d] - %(levelname)s: %(message)s")
-    g = Generator(PIC_DIRS, width=256, height=144, unattended=UNATTENDED, video_generate=VIDEO_GENERATE,
-                  tp=TEMP_DIR, op=GENERATE_DIR, from_=FROM, fps=FPS, wait_time=WAIT_TIME)
-    g.build_write_frames(DATA_DIR)
+    g = Generator(PIC_DIR, mappings=MAPPING, width=256, height=144, unattended=UNATTENDED,
+                  video_generate=VIDEO_GENERATE, tp=TEMP_DIR, op=GENERATE_DIR, from_=FROM, fps=FPS, wait_time=WAIT_TIME)
+    g.build_write_frames(os.path.join(GAME_DIR, "saves", WORLD_NAME))

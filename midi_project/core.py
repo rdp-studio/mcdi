@@ -34,6 +34,7 @@ class Generator(mido.MidiFile):
 
         self.loaded_messages = list()
         self.built_commands = list()
+        self.tick_packs = list()
         self.tempo = 5E5
         self.blank_ticks = blank_ticks
         self.frontend = frontend
@@ -185,7 +186,7 @@ class Generator(mido.MidiFile):
         self.loaded_messages.sort(key=lambda n: n["tick"])
         logging.info("Load process finished.")
 
-    def build_events(self):
+    def build_events(self, function_based=True):
         self.built_commands.clear()
 
         self.build_count = 0
@@ -216,15 +217,29 @@ class Generator(mido.MidiFile):
             while (m := self.loaded_messages) and m[0]["tick"] == self.tick:
                 self.tick_cache.append(self.loaded_messages.pop(0))
 
-            for message in self.tick_cache:
-                if message["type"] == "note_on":
-                    if self.set_cmd_block(x_shift=self.build_index, y_shift=self.y_index, z_shift=self.wrap_index,
-                                       command=self.play_cmd(message)):
-                        self.y_index += 1
-                elif message["type"] == "note_off":
-                    if self.set_cmd_block(x_shift=self.build_index, y_shift=self.y_index, z_shift=self.wrap_index,
-                                       command=self.stop_cmd(message)):
-                        self.y_index += 1
+            if function_based:
+                tick_pack = {"tick": self.tick, "commands": []}
+                for message in self.tick_cache:
+                    if message["type"] == "note_on":
+                        tick_pack["commands"].append(self.play_cmd(message) + "\n")
+                    elif message["type"] == "note_off":
+                        tick_pack["commands"].append(self.stop_cmd(message) + "\n")
+                self.tick_packs.append(tick_pack)
+            else:
+                for message in self.tick_cache:
+                    if message["type"] == "note_on":
+                        if self.set_cmd_block(x_shift=self.build_index, y_shift=self.y_index, z_shift=self.wrap_index,
+                                           command=self.play_cmd(message)):
+                            self.y_index += 1
+                    elif message["type"] == "note_off":
+                        if self.set_cmd_block(x_shift=self.build_index, y_shift=self.y_index, z_shift=self.wrap_index,
+                                           command=self.stop_cmd(message)):
+                            self.y_index += 1
+
+            if function_based:
+                if self.set_cmd_block(x_shift=self.build_index, y_shift=self.y_index, z_shift=self.wrap_index,
+                                      command=f"function mcdi:tick-{hash(self)}-{self.tick}"):
+                    self.y_index += 1
 
             for plugin in self.plugins:
                 plugin.exec(self)
@@ -253,6 +268,12 @@ class Generator(mido.MidiFile):
             file.write('{"pack":{"pack_format":233,"description":"Made by MCDI, a project by kworker(FrankYang)."}}')
         with open(os.path.join(wp, r"datapacks\MCDI\data\%s\functions\%s.mcfunction" % (namespace, func)), "w") as file:
             file.writelines(self.built_commands)
+        if self.tick_packs:
+            logging.info("Writing tick packs! PLEASE WAIT!")
+        for tick_pack in self.tick_packs:
+            tick_path = r"datapacks\MCDI\data\mcdi\functions\tick-%s-%s.mcfunction" % (hash(self), tick_pack["tick"])
+            with open(os.path.join(wp, tick_path), "w") as tick:
+                tick.writelines(tick_pack["commands"])
         logging.info("Write process finished.")
         logging.debug("To run the music function: '/reload'")
         logging.debug(f"Then: '/function {namespace}:{func}'")
@@ -287,14 +308,14 @@ if __name__ == '__main__':
     from midi_project.plugins import *
     from midi_project.frontends import *
 
-    MIDI_PATH = r"D:\midi\only_my_railgun_guitar.mid"  # Where you save your midi file.
+    MIDI_PATH = r"D:\midi\pi.mid"  # Where you save your midi file.
 
     GAME_DIR = r"D:\Minecraft\.minecraft\versions\fabric-loader-0.8.2+build.194-1.14.4"  # Your game directory
     WORLD_NAME = r"Tester"  # Your world name
 
     TICK_RATE = 60  # The higher, the faster
     EXPECTED_LEN = 0  # Overrides the tick rate, set to -1 to disable, set to 0 to automatic
-    TOLERANCE = 0  # Works with expected length, set to 0 for fixed
+    TOLERANCE = 3  # Works with expected length, set to 0 for fixed
     STEP = 0.05  # Works with expected length
     LONG_NOTE_LEVEL = 40  # Set to 0 to disable
 
@@ -311,7 +332,7 @@ if __name__ == '__main__':
     ]
 
     PLUGINS = [
-        PianoFall()
+        # PianoFall()
     ]
 
     logging.basicConfig(level=logging.DEBUG,
