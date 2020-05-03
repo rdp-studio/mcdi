@@ -93,6 +93,9 @@ class PianoFall(object):
         self.sustain = sustain
         self.sustain_notes = []
 
+    def init(self, generator: Generator):
+        generator.blank_ticks += self.front_tick
+
     def exec(self, generator: Generator):
         generator.set_cmd_block(x_shift=generator.build_index, y_shift=generator.y_index, z_shift=generator.wrap_index,
                                 command=f"execute as @e[name={generator.tick - self.front_tick},type=minecraft:falling_b"
@@ -127,8 +130,9 @@ class PianoFall(object):
                              f'{{BlockState: {{Name: \\\"{block_name}\\\"}}, Time: 1, CustomName: ' \
                              f'\'\\\"{generator.tick}\\\"\'}}'
             else:
-                max_tick = generator.loaded_messages[-1]["tick"]
-                wrap_sum = max_tick // generator.wrap_length + 1
+                if not hasattr(self, "end_tick"):
+                    self.end_tick = max(generator.loaded_messages, key=lambda x: x["tick"])["tick"]
+                wrap_sum = self.end_tick // generator.wrap_length + 1
                 note_shift = on_note["note"] - self.note_shift
                 summon_cmd = f'summon minecraft:falling_block ~{-generator.build_index + note_shift} ~' \
                              f'{self.sum_y - generator.y_index} ' \
@@ -140,9 +144,6 @@ class PianoFall(object):
             generator.y_index += 1
 
 
-from json import dumps
-
-
 class Title(object):
     __author__ = "kworker"
     __doc__ = """Using title command to show some titles"""
@@ -152,7 +153,7 @@ class Title(object):
 
     def exec(self, generator: Generator):
         if not hasattr(self, "end_tick"):
-            self.end_tick = generator.loaded_messages[-1]["tick"]
+            self.end_tick = max(generator.loaded_messages, key=lambda x: x["tick"])["tick"]
 
         this_titles = list(filter(lambda x: (x["tick"] == generator.tick - generator.blank_ticks), self.titles))
 
@@ -161,6 +162,7 @@ class Title(object):
             title_type = this_title["type"]
             del this_title["type"]
 
+            from json import dumps
             json = dumps(this_title, ensure_ascii=False).replace('"', '\\"')
             title_cmd = f"title @a {title_type} {json}"
             generator.set_cmd_block(x_shift=generator.build_index, y_shift=generator.y_index,

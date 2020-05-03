@@ -93,7 +93,7 @@ class Generator(object):
             logging.info(f"Built {frame_count} frame(s), {len(frames)} frames in all.")
             gen.build_pixels()
             logging.info(f"Wrote {frame_count} frame(s), {len(frames)} frames in all.")
-            gen.write_built(wp)  # Calls pic_project.core, generates picture function
+            gen.write_func(wp)  # Calls pic_project.core, generates picture function
 
             flags["done"] = True  # Wake operator up
             logging.info("Waiting for the unattended process (if exists)...")
