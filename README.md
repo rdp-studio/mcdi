@@ -4,7 +4,7 @@
 ## Getting started
 To run this library, you need:
 + Python 3.8 or newer
-  + Package: mido
+  + Package: mido (+ rtmidi-python)
   + Package: pillow (PIL)
   + Package: opencv-python (cv2)
-+ Minecraft (Java Edition) 1.15 or newer
++ Minecraft (Java Edition) 1.13 or newer

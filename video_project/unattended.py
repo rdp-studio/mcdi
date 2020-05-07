@@ -24,8 +24,7 @@ def main_function(flags, time, tmp):
 
 def main_worker(flags, time, tmp):
     thread = threading.Thread(target=main_function, args=(flags, time, tmp))
-    thread.setDaemon(daemonic=True)
-    thread.start()
+    thread.setDaemon(daemonic=True) or thread.start()
 
 
 if __name__ == '__main__':

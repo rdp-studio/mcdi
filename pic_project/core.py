@@ -66,7 +66,7 @@ def rgb2hsv(r, g, b):
 
 
 class Generator(object):
-    def __init__(self, fp, mappings, width=192, height=128, directions=Directions.XY, absolute=False, model=Model.RGB):
+    def __init__(self, fp, mappings, width=128, height=128, directions=Directions.XY, absolute=False, model=Model.RGB):
         logging.debug("Initializing generator...")
         self.mappings = mappings
         logging.debug(f"Loading picture: {fp}.")
@@ -104,9 +104,9 @@ class Generator(object):
                         elif self.model == Model.HSV:
                             c_h, c_s, c_v = rgb2hsv(*item["color"])
                             p_h, p_s, p_v = rgb2hsv(*pixel[:3])
-                            h_diff = abs(c_h - p_h)
-                            s_diff = abs(c_s - p_s)
-                            v_diff = abs(c_v - p_v)
+                            h_diff = abs(c_h - p_h) / 360 * 255
+                            s_diff = abs(c_s - p_s) * 255
+                            v_diff = abs(c_v - p_v) * 255
                             diff = h_diff + s_diff + v_diff
                         else:
                             raise TypeError(f"Unknown model: {self.model}")
@@ -116,7 +116,7 @@ class Generator(object):
                 block_name = nearest_item["block"]
                 self.set_block(x, y, block_name)
 
-                if (built_count := x * self.y + y) % 4000 == 0:
+                if (built_count := x * self.y + y) % 1000 == 0:
                     logging.info("Built %s pixels, %s pixels in all." % (built_count, pixel_count))
 
         logging.info("Build process finished.")
@@ -166,13 +166,13 @@ class Generator(object):
 if __name__ == '__main__':
     from json import loads
 
-    with open("vanilla_blocks.json") as f:
+    with open("mappings/vanilla_blocks.json") as f:
         MAPPING = loads(f.read())
 
-    PIC_PATH = r"D:\桌面\OIP.jpg"  # Where you save your picture file.
+    PIC_PATH = r"D:\桌面\xiao_mai_12.jpg"  # Where you save your picture file.
 
     GAME_DIR = r"D:\Minecraft\.minecraft\versions\fabric-loader-0.8.2+build.194-1.14.4"  # Your game directory
-    WORLD_NAME = r"Tester"  # Your world name
+    WORLD_NAME = r"Umaru"  # Your world name
 
     logging.basicConfig(level=logging.DEBUG,
                         format="%(asctime)s - %(filename)s[line:%(lineno)d] - %(levelname)s: %(message)s")

@@ -12,7 +12,7 @@ import time
 
 from pic_project.core import Directions
 from pic_project.core import Generator as Gen
-from video_project import unattended, video_gen
+from video_project import unattended, video_make
 
 
 class Generator(object):
@@ -86,7 +86,7 @@ class Generator(object):
             for root, _, files in os.walk(self.tp):
                 for frame_name in files:
                     frames.append(os.path.join(root, frame_name))
-            video_gen.main_worker(self.op, self.fps, *frames)
+            video_make.main_worker(self.op, self.fps, *frames)
 
         logging.info("Build process finished.")  # Finish!
 
@@ -94,10 +94,10 @@ class Generator(object):
 if __name__ == "__main__":
     from json import loads
 
-    with open("../pic_project/vanilla_blocks.json") as f:
+    with open("../pic_project/mappings/vanilla_blocks.json") as f:
         MAPPING = loads(f.read())
 
-    PIC_DIR = r"D:\revenge-frames"  # Where you save your image frame files, THAT MUST BE ASCII!!
+    FRAME_PATH = r"D:\revenge-frames"  # Where you save your image frame files, THAT MUST BE ASCII!!
 
     GAME_DIR = r"D:\Minecraft\.minecraft\versions\1.15.2"  # Your game directory
     WORLD_NAME = r"Template"  # Your world name
@@ -116,8 +116,9 @@ if __name__ == "__main__":
     GENERATE_DIR = r"D:\revenge.avi"  # Where to save the output
     FPS = 24  # The expecting frame rate
     # -->
+
     logging.basicConfig(level=logging.INFO,
                         format="%(asctime)s - %(filename)s[line:%(lineno)d] - %(levelname)s: %(message)s")
-    g = Generator(PIC_DIR, mappings=MAPPING, width=256, height=144, unattended=UNATTENDED,
+    g = Generator(FRAME_PATH, mappings=MAPPING, width=256, height=144, unattended=UNATTENDED,
                   video_generate=VIDEO_GENERATE, tp=TEMP_DIR, op=GENERATE_DIR, from_=FROM, fps=FPS, wait_time=WAIT_TIME)
     g.build_write_frames(os.path.join(GAME_DIR, "saves", WORLD_NAME))

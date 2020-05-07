@@ -1,90 +1,75 @@
 from midi_project.core import Generator
 
 
+class Plugin(object):
+    def __init__(self):
+        pass
+
+    def exec(self, generator: Generator):
+        pass
+
+    def init(self, generator: Generator):
+        pass
+
+
 class Progress(object):
     __author__ = "kworker"
-    __doc__ = """Show a progress bar"""
+    __doc__ = """Simply shows a progress bar"""
 
-    def __init__(self, pk=0, text="MCDI", color="yellow"):
+    def __init__(self, pk: "The ID for the bossbar, no need to care for in most cases."=0,
+                 text: "The title for the bossbar to show on the top."="MCDI",
+                 color: "The color for the bossbar and the title."="yellow"):
         self.pk = pk
         self.text = text
         self.color = color
 
     def exec(self, generator: Generator):
-        self.end_tick = max(generator.loaded_messages, key=lambda x: x["tick"])["tick"]
-        if generator.tick == 0:
-            cmd = f"bossbar add {self.pk} {{\\\"text\\\": \\\"{self.text}\\\"}}"
-            generator.set_cmd_block(x_shift=generator.build_index, y_shift=generator.y_index,
-                                    z_shift=generator.wrap_index, command=cmd)
-            generator.y_index += 1
+        if not hasattr(self, "end_tick"):
+            self.end_tick = max(generator.loaded_messages, key=lambda x: x["tick"])["tick"]
+        if generator.tick_count == 0:
+            cmd = f'bossbar add {self.pk} {{"text": "{self.text}"}}'
+            if generator._set_tick_command(x_shift=generator.build_index, y_shift=generator.y_index,
+                                           z_shift=generator.wrap_index, command=cmd):
+                generator.y_index += 1
             cmd = f"bossbar set {self.pk} color {self.color}"
-            generator.set_cmd_block(x_shift=generator.build_index, y_shift=generator.y_index,
-                                    z_shift=generator.wrap_index, command=cmd)
-            generator.y_index += 1
+            if generator._set_tick_command(x_shift=generator.build_index, y_shift=generator.y_index,
+                                           z_shift=generator.wrap_index, command=cmd):
+                generator.y_index += 1
             cmd = f"bossbar set {self.pk} max {self.end_tick}"
-            generator.set_cmd_block(x_shift=generator.build_index, y_shift=generator.y_index,
-                                    z_shift=generator.wrap_index, command=cmd)
-            generator.y_index += 1
+            if generator._set_tick_command(x_shift=generator.build_index, y_shift=generator.y_index,
+                                           z_shift=generator.wrap_index, command=cmd):
+                generator.y_index += 1
             cmd = f"bossbar set {self.pk} players @a"
-            generator.set_cmd_block(x_shift=generator.build_index, y_shift=generator.y_index,
-                                    z_shift=generator.wrap_index, command=cmd)
-            generator.y_index += 1
+            if generator._set_tick_command(x_shift=generator.build_index, y_shift=generator.y_index,
+                                           z_shift=generator.wrap_index, command=cmd):
+                generator.y_index += 1
             cmd = f"bossbar set {self.pk} visible true"
-            generator.set_cmd_block(x_shift=generator.build_index, y_shift=generator.y_index,
-                                    z_shift=generator.wrap_index, command=cmd)
-            generator.y_index += 1
+            if generator._set_tick_command(x_shift=generator.build_index, y_shift=generator.y_index,
+                                           z_shift=generator.wrap_index, command=cmd):
+                generator.y_index += 1
             return None
-        if generator.tick == self.end_tick:
+        if generator.tick_count == self.end_tick:
             cmd = f"bossbar set {self.pk} visible false"
-            generator.set_cmd_block(x_shift=generator.build_index, y_shift=generator.y_index,
-                                    z_shift=generator.wrap_index, command=cmd)
-            generator.y_index += 1
+            if generator._set_tick_command(x_shift=generator.build_index, y_shift=generator.y_index,
+                                           z_shift=generator.wrap_index, command=cmd):
+                generator.y_index += 1
             return None
-        generator.set_cmd_block(x_shift=generator.build_index, y_shift=generator.y_index, z_shift=generator.wrap_index,
-                                command=f"bossbar set {self.pk} value {generator.tick}")
-        generator.y_index += 1
-
-
-class Lightning(object):
-    __author__ = "kworker"
-    __doc__ = """君指先跃动の光は、私の一生不変の信仰に、唯私の超电磁炮永生き！"""
-
-    def __init__(self):
-        pass
-
-    @staticmethod
-    def exec(generator: Generator):
-        generator.set_cmd_block(x_shift=generator.build_index, y_shift=generator.y_index, z_shift=generator.wrap_index,
-                                command="summon lightning_bolt")
-        generator.y_index += 1
-
-
-class Particle(object):
-    __author__ = "kworker"
-    __doc__ = """Show some particles"""
-
-    def __init__(self, particle="end_rod", x_shift=0, y_shift=0, z_shift=0,
-                 dx=0, dy=1, dz=0, speed=1, count=1, additional=()):
-        self.particle = particle
-        self.x_shift = x_shift
-        self.y_shift = y_shift
-        self.z_shift = z_shift
-        self.args = (dx, dy, dz, speed, count)
-        self.additional = additional
-        pass
-
-    def exec(self, generator: Generator):
-        generator.set_cmd_block(x_shift=generator.build_index, y_shift=generator.y_index, z_shift=generator.wrap_index,
-                                command=f"particle {self.particle} {' '.join(map(str, self.additional))} ~{self.x_shift}"
-                                        f" ~{self.y_shift} ~{self.z_shift} {' '.join(map(str, self.args))} force")
-        generator.y_index += 1
+        if generator._set_tick_command(x_shift=generator.build_index, y_shift=generator.y_index,
+                                       z_shift=generator.wrap_index,
+                                       command=f"bossbar set {self.pk} value {generator.tick_count}"):
+            generator.y_index += 1
 
 
 class PianoFall(object):
     __author__ = "kworker"
-    __doc__ = """Using falling blocks to show a piano fall"""
+    __doc__ = """Shows a fancy piano fall"""
 
-    def __init__(self, front_tick=90, summon_height=100, note_shift=0, front_shift=1, reversed=False, sustain=False):
+    def __init__(self, front_tick: "How many ticks should the blocks fall before the note plays."=90,
+                 summon_height: "How high should the command blocks summon falling blocks."=100,
+                 note_shift: "Moves the piano fall further away in build axis."=0,
+                 front_shift: "Moves the piano fall further away in wrap axis."=1,
+                 reversed: "The piano fall will be closer to the first command block instead of the last one."=False,
+                 sustain: "Shows a long bar instead of a dot for long notes."=False):
         self.front_tick = front_tick
         self.sum_y = summon_height
         self.note_shift = note_shift
@@ -97,20 +82,25 @@ class PianoFall(object):
         generator.blank_ticks += self.front_tick
 
     def exec(self, generator: Generator):
-        generator.set_cmd_block(x_shift=generator.build_index, y_shift=generator.y_index, z_shift=generator.wrap_index,
-                                command=f"execute as @e[name={generator.tick - self.front_tick},type=minecraft:falling_b"
-                                        f"lock] at @s run particle minecraft:end_rod ~ ~ ~ 0.25 0.25 0.25 0.1 100 force")
+        generator._set_tick_command(x_shift=generator.build_index, y_shift=generator.y_index,
+                                    z_shift=generator.wrap_index,
+                                    command=f"execute as @e[name={generator.tick_count - self.front_tick},type=minecraft"
+                                            f":falling_block] at @s run particle minecraft:end_rod ~ ~ ~ 0.25 0.25 0.25 "
+                                            f"0.1 100 force")
         generator.y_index += 1
-        generator.set_cmd_block(x_shift=generator.build_index, y_shift=generator.y_index, z_shift=generator.wrap_index,
-                                command=f"kill @e[name={generator.tick - self.front_tick},type=minecraft:falling_block]")
+        generator._set_tick_command(x_shift=generator.build_index, y_shift=generator.y_index,
+                                    z_shift=generator.wrap_index,
+                                    command=f"kill @e[name={generator.tick_count - self.front_tick},type=minecraft:falli"
+                                            f"ng_block]")
         generator.y_index += 1
 
-        on_notes = list(filter(lambda x: x["type"] == "note_on" and x["tick"] == generator.tick + self.front_tick,
+        on_notes = list(filter(lambda x: x["type"] == "note_on" and x["tick"] == generator.tick_count + self.front_tick,
                                generator.loaded_messages))
         if self.sustain:  # Sustained only
             self.sustain_notes.extend(on_notes)
-            for off_note in filter(lambda x: x["type"] == "note_off" and x["tick"] == generator.tick + self.front_tick,
-                                   generator.loaded_messages):
+            for off_note in filter(
+                    lambda x: x["type"] == "note_off" and x["tick"] == generator.tick_count + self.front_tick,
+                    generator.loaded_messages):
                 map(
                     lambda end_note: self.sustain_notes.remove(end_note),
                     filter(lambda x: x["ch"] == off_note["ch"] and x["note"] == off_note["note"], self.sustain_notes)
@@ -127,8 +117,8 @@ class PianoFall(object):
                 note_shift = 128 - (on_note["note"] - self.note_shift)
                 summon_cmd = f'summon minecraft:falling_block ~{-generator.build_index + note_shift} ~' \
                              f'{self.sum_y - generator.y_index} ~{-generator.wrap_index - 1 - self.front_shift} ' \
-                             f'{{BlockState: {{Name: \\\"{block_name}\\\"}}, Time: 1, CustomName: ' \
-                             f'\'\\\"{generator.tick}\\\"\'}}'
+                             f'{{BlockState: {{Name: "{block_name}"}}, Time: 1, CustomName: ' \
+                             f'\'"{generator.tick_count}"\'}}'
             else:
                 if not hasattr(self, "end_tick"):
                     self.end_tick = max(generator.loaded_messages, key=lambda x: x["tick"])["tick"]
@@ -137,34 +127,8 @@ class PianoFall(object):
                 summon_cmd = f'summon minecraft:falling_block ~{-generator.build_index + note_shift} ~' \
                              f'{self.sum_y - generator.y_index} ' \
                              f'~{wrap_sum - generator.wrap_index + 1 + self.front_shift}' \
-                             f' {{BlockState: {{Name: \\\"{block_name}\\\"}}, Time: 1, CustomName:' \
-                             f'\'\\\"{generator.tick}\\\"\'}}'
-            generator.set_cmd_block(x_shift=generator.build_index, y_shift=generator.y_index,
-                                    z_shift=generator.wrap_index, command=summon_cmd)
-            generator.y_index += 1
-
-
-class Title(object):
-    __author__ = "kworker"
-    __doc__ = """Using title command to show some titles"""
-
-    def __init__(self, titles):
-        self.titles = titles
-
-    def exec(self, generator: Generator):
-        if not hasattr(self, "end_tick"):
-            self.end_tick = max(generator.loaded_messages, key=lambda x: x["tick"])["tick"]
-
-        this_titles = list(filter(lambda x: (x["tick"] == generator.tick - generator.blank_ticks), self.titles))
-
-        for this_title in this_titles:
-            del this_title["tick"]
-            title_type = this_title["type"]
-            del this_title["type"]
-
-            from json import dumps
-            json = dumps(this_title, ensure_ascii=False).replace('"', '\\"')
-            title_cmd = f"title @a {title_type} {json}"
-            generator.set_cmd_block(x_shift=generator.build_index, y_shift=generator.y_index,
-                                    z_shift=generator.wrap_index, command=title_cmd)
-            generator.y_index += 1
+                             f' {{BlockState: {{Name: "{block_name}"}}, Time: 1, CustomName:' \
+                             f'\'"{generator.tick_count}"\'}}'
+            if generator._set_tick_command(x_shift=generator.build_index, y_shift=generator.y_index,
+                                           z_shift=generator.wrap_index, command=summon_cmd):
+                generator.y_index += 1
