@@ -98,6 +98,7 @@ class Generator(mido.MidiFile):
         logging.debug("Analysing long notes.")
         track_count = len(self.tracks)
         count = 0
+
         for i, track in enumerate(self.tracks):
             logging.debug(f"Reading events from track {i}: {track}...")
             time_accum = 0
@@ -107,17 +108,47 @@ class Generator(mido.MidiFile):
                     vars(message)["abs_time"] = time_accum
                     sustain_notes.append(message)
                 elif message.type == "note_off":
-                    off_notes = filter(lambda x: x.channel == message.channel and x.note == message.note, sustain_notes)
+                    off_notes = filter(
+                        lambda x: x.channel == message.channel and x.note == message.note, sustain_notes
+                    )
                     for off_note in off_notes:
-                        vars(off_note)["length"] = time_accum - off_note.abs_time
-                        if off_note in sustain_notes:
-                            sustain_notes.remove(off_note)
-                        if off_note.length >= threshold:
-                            vars(off_note)["L"] = True
-                            vars(message)["L"] = True
+                        length = time_accum - off_note.abs_time
+                        sustain_notes.remove(off_note)
+                        if length >= threshold:
+                            vars(off_note)["long"] = True
+                            vars(message)["long"] = True
             count += 1
             progress_callback(count, track_count)
             logging.debug(f"Analysed long notes in track {i}.")
+
+    def half_tick_analysis(self, minimum=0.3, maximum=0.7, progress_callback=lambda x, y: None):
+        sustain_notes = []
+        logging.debug("Analysing half-tick notes.")
+        track_count = len(self.tracks)
+        count = 0
+
+        for i, track in enumerate(self.tracks):
+            logging.debug(f"Reading events from track {i}: {track}...")
+            time_accum = 0
+            for message in track:
+                time_accum += message.time
+                if message.type == "note_on":
+                    tick_diff = 1 - ceil(t := (time_accum / self.tick_rate)) + t
+                    if minimum < tick_diff < maximum:
+                        vars(message)["half"] = True
+                        vars(message)["shift"] = - (round(t) > t)
+                        sustain_notes.append(message)
+                elif message.type == "note_off":
+                    off_notes = filter(
+                        lambda x: x.channel == message.channel and x.note == message.note, sustain_notes
+                    )
+                    for off_note in off_notes:
+                        vars(message)["half"] = True
+                        vars(message)["shift"] = 1
+                        sustain_notes.remove(off_note)
+            count += 1
+            progress_callback(count, track_count)
+            logging.debug(f"Analysed half-tick notes in track {i}.")
 
     def load_events(self, pan_enabled=True, gvol_enabled=True, pitch_enabled=True, pitch_factor=1,
                     volume_factor=1.0):
@@ -171,15 +202,29 @@ class Generator(mido.MidiFile):
                     else:
                         pitch_value = 1
 
-                    if hasattr(message, "L"):
+                    if hasattr(message, "long"):
                         long = True
                     else:
                         long = False
 
-                    self.loaded_messages.append(
-                        {"type": message.type, "ch": message.channel, "prog": program, "note": message.note,
-                         "v": volume_value, "tick": tick_time, "pan": pan_value, "pitch": pitch_value, "long": long}
-                    )
+                    if hasattr(message, "half"):
+                        half = True
+                        tick_time += message.shift
+                    else:
+                        half = False
+
+                    self.loaded_messages.append({
+                        "type": message.type,
+                        "ch": message.channel,
+                        "prog": program,
+                        "note": message.note,
+                        "v": volume_value,
+                        "tick": tick_time,
+                        "pan": pan_value,
+                        "pitch": pitch_value,
+                        "half": half,
+                        "long": long
+                    })
                 elif "prog" in message.type:
                     time = time_accum + message.time
                     program_set[message.channel] = {"value": message.program, "time": tick_time}
@@ -274,8 +319,9 @@ class Generator(mido.MidiFile):
         logging.info("Build process finished.")
         logging.debug(f"Estimated duration: {self.tick_count / 20} second(s)。")
 
-    def write_func(self, wp, namespace="mcdi", func="music"):
-        logging.info(f"Writing {(length := len(self.built_commands))} command(s) built.")
+    def write_func(self, wp, limitation=None, namespace="mcdi", func="music"):
+        logging.info(
+            f"Writing {(length := (limitation if limitation else len(self.built_commands)))} command(s) built.")
         if length >= 65536:
             logging.warning("Notice: please try this command as your music function is longer than 65536 line(s).")
             logging.warning("Try this: /gamerule maxCommandChainLength %d" % (length + 1))  # Too long
@@ -287,7 +333,7 @@ class Generator(mido.MidiFile):
         with open(os.path.join(wp, r"datapacks\MCDI\pack.mcmeta"), "w") as file:
             file.write('{"pack":{"pack_format":233,"description":"Made by MCDI, a project by kworker(FrankYang)."}}')
         with open(os.path.join(wp, r"datapacks\MCDI\data\%s\functions\%s.mcfunction" % (namespace, func)), "w") as file:
-            file.writelines(self.built_commands)
+            file.writelines(self.built_commands[:limitation])
         if self.tick_packs:
             logging.info("Writing tick packs! PLEASE WAIT!")
         for tick_pack in self.tick_packs:
@@ -345,22 +391,22 @@ if __name__ == '__main__':
     from midi_project.plugins import *
     from midi_project.frontends import *
 
-    MIDI_PATH = r"D:\midi\umaru_op.mid"  # Where you save your midi file.
+    MIDI_PATH = r"D:\音乐\Only My Railgun Guitar.mid"  # Where you save your midi file.
 
     GAME_DIR = r"D:\Minecraft\.minecraft\versions\fabric-loader-0.8.2+build.194-1.14.4"  # Your game directory
-    WORLD_NAME = r"Umaru"  # Your world name
+    WORLD_NAME = r"Tester"  # Your world name
 
     TICK_RATE = 60  # The higher, the faster
     EXPECTED_LEN = 0  # Overrides the tick rate, set to -1 to disable, set to 0 to automatic
     TOLERANCE = 3  # Works with expected length, set to 0 for fixed
     STEP = 0.05  # Works with expected length
-    LONG_NOTE_LEVEL = 40  # Set to 0 to disable
+    LONG_NOTE_LEVEL = 200  # Set to 0 to disable
 
     PAN_ENABLED = True  # Whether you want to use the pan or not
     GLOBAL_VOLUME_ENABLED = True  # Whether you want to use the global volume or not
     PITCH_ENABLED = True  # Whether you want to use the pitch value or not
     PITCH_FACTOR = 1  # How much do you want the pitch value to be
-    VOLUME_FACTOR = 1.5  # 1 as default, the bigger, the louder
+    VOLUME_FACTOR = 1  # 1 as default, the bigger, the louder
 
     FRONT_END = Soma()
 
@@ -369,7 +415,14 @@ if __name__ == '__main__':
     ]
 
     PLUGINS = [
-        PianoFall()
+        PianoFall(
+            all_commands=[
+                "particle minecraft:firework ~ ~ ~ 0 0.175 0 0.025 20 force"
+            ],
+            die_commands=[
+                "particle minecraft:end_rod ~ ~ ~ 0.25 0.25 0.25 0.1 100 force",
+            ]
+        )
     ]
 
     logging.basicConfig(level=logging.DEBUG,
@@ -380,7 +433,8 @@ if __name__ == '__main__':
         gen.tick_analysis(EXPECTED_LEN, TOLERANCE, STEP)
     if 0 < LONG_NOTE_LEVEL:
         gen.long_note_analysis(LONG_NOTE_LEVEL)
+    gen.half_tick_analysis()
     gen.load_events(pan_enabled=PAN_ENABLED, gvol_enabled=GLOBAL_VOLUME_ENABLED, pitch_enabled=PITCH_ENABLED,
                     pitch_factor=PITCH_FACTOR, volume_factor=VOLUME_FACTOR, )
     gen.build_events()
-    gen.write_func(os.path.join(GAME_DIR, "saves", WORLD_NAME))
+    gen.write_func(os.path.join(GAME_DIR, "saves", WORLD_NAME), limitation=10000)

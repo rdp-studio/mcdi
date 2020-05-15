@@ -8,7 +8,7 @@ def main_worker(fp, fps, *dirs):
     img_temp = Image.open(fp=dirs[0])
     width = img_temp.width
     height = img_temp.height
-    del img_temp  # Detect image size
+    del img_temp  # Detect the image size
 
     logging.info("Initializing MJPG...")
     four_cc = cv2.VideoWriter_fourcc(*'MJPG')  # Initialize MJPG

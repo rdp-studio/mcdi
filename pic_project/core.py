@@ -66,7 +66,7 @@ def rgb2hsv(r, g, b):
 
 
 class Generator(object):
-    def __init__(self, fp, mappings, width=128, height=128, directions=Directions.XY, absolute=False, model=Model.RGB):
+    def __init__(self, fp, mappings, width=256, height=144, directions=Directions.XY, absolute=None, model=Model.RGB):
         logging.debug("Initializing generator...")
         self.mappings = mappings
         logging.debug(f"Loading picture: {fp}.")
@@ -169,13 +169,15 @@ if __name__ == '__main__':
     with open("mappings/vanilla_blocks.json") as f:
         MAPPING = loads(f.read())
 
-    PIC_PATH = r"D:\桌面\xiao_mai_12.jpg"  # Where you save your picture file.
+    PIC_PATH = r"D:\图片\mojave_dynamic_10.jpeg"  # Where you save your picture file.
 
-    GAME_DIR = r"D:\Minecraft\.minecraft\versions\fabric-loader-0.8.2+build.194-1.14.4"  # Your game directory
-    WORLD_NAME = r"Umaru"  # Your world name
+    GAME_DIR = r"D:\Minecraft\.minecraft\versions\1.15.2"  # Your game directory
+    WORLD_NAME = r"Template"  # Your world name
+
+    WIDTH, HEIGHT = 256, 144
 
     logging.basicConfig(level=logging.DEBUG,
                         format="%(asctime)s - %(filename)s[line:%(lineno)d] - %(levelname)s: %(message)s")
-    gen = Generator(PIC_PATH, mappings=[MAPPING])
+    gen = Generator(PIC_PATH, mappings=[MAPPING], width=WIDTH, height=HEIGHT)
     gen.build_pixels()
     gen.write_func(os.path.join(GAME_DIR, "saves", WORLD_NAME))

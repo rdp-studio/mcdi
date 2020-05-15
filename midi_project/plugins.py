@@ -69,25 +69,34 @@ class PianoFall(object):
                  note_shift: "Moves the piano fall further away in build axis."=0,
                  front_shift: "Moves the piano fall further away in wrap axis."=1,
                  reversed: "The piano fall will be closer to the first command block instead of the last one."=False,
-                 sustain: "Shows a long bar instead of a dot for long notes."=False):
+                 sustain: "Shows a long bar instead of a dot for long notes."=False,
+                 die_commands: "Do the command(s) when a falling block dies." = (),
+                 all_commands: "Do the command(s) for every falling block."=()):
         self.front_tick = front_tick
         self.sum_y = summon_height
         self.note_shift = note_shift
         self.front_shift = front_shift
         self.reversed = reversed
         self.sustain = sustain
+        self.die_commands = die_commands
+        self.all_commands = all_commands
         self.sustain_notes = []
 
     def init(self, generator: Generator):
         generator.blank_ticks += self.front_tick
 
     def exec(self, generator: Generator):
-        generator._set_tick_command(x_shift=generator.build_index, y_shift=generator.y_index,
-                                    z_shift=generator.wrap_index,
-                                    command=f"execute as @e[name={generator.tick_count - self.front_tick},type=minecraft"
-                                            f":falling_block] at @s run particle minecraft:end_rod ~ ~ ~ 0.25 0.25 0.25 "
-                                            f"0.1 100 force")
-        generator.y_index += 1
+        for command in self.die_commands:
+            generator._set_tick_command(x_shift=generator.build_index, y_shift=generator.y_index,
+                                        z_shift=generator.wrap_index,
+                                        command=f"execute as @e[name={generator.tick_count - self.front_tick},type="
+                                                f"minecraft:falling_block] at @s run {command}")
+            generator.y_index += 1
+        for command in self.all_commands:
+            generator._set_tick_command(x_shift=generator.build_index, y_shift=generator.y_index,
+                                        z_shift=generator.wrap_index,
+                                        command=f"execute as @e[type=minecraft:falling_block] at @s run {command}")
+            generator.y_index += 1
         generator._set_tick_command(x_shift=generator.build_index, y_shift=generator.y_index,
                                     z_shift=generator.wrap_index,
                                     command=f"kill @e[name={generator.tick_count - self.front_tick},type=minecraft:falli"

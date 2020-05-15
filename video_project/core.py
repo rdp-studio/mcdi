@@ -17,7 +17,7 @@ from video_project import unattended, video_make
 
 class Generator(object):
     def __init__(self, fp, mappings, width=256, height=144, from_=0, unattended=True, video_generate=True,
-                 directions=Directions.XY, absolute=True, tp=r"D:\tmp", op="D:\\", fps=24, wait_time=3):
+                 directions=Directions.XY, absolute=(0, 0, 0), tp=r"D:\tmp", op="D:\\", fps=24, wait_time=3):
         logging.debug("Initializing...")  # Initialize
         self.fp = fp
         self.width = width

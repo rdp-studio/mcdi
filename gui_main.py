@@ -343,13 +343,14 @@ class MainWindow(MainFrame):
                     plugin_list.append(plugin(**params))
 
                 middle_list = []
-                indexes = self.PluginsList.GetCheckedItems()
-                middle_strings = self.PluginsList.GetItems()
+                indexes = self.MiddlesList.GetCheckedItems()
+                print(indexes)
+                middle_strings = self.MiddlesList.GetItems()
                 for index in indexes:
                     params = self.middle_panes[index].params
                     middle_name = middle_strings[index].split("-")[0].strip()
                     if (middle := getattr(middlewares, middle_name, None)) is None:
-                        wx.MessageBox(f"选定的插件（{middle_name}）不存在。", "错误", wx.OK | wx.ICON_ERROR)
+                        wx.MessageBox(f"选定的中间件（{middle_name}）不存在。", "错误", wx.OK | wx.ICON_ERROR)
                         raise StopIteration
                     middle_list.append(middle(**params))
 

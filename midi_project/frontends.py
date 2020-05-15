@@ -21,15 +21,15 @@ class Soma(Frontend):
         super().__init__()
 
     @classmethod
-    def get_play_cmd(cls, prog, note, v, pan, pitch, long, **kwargs):
+    def get_play_cmd(cls, prog, note, v, pan, pitch, long, half, **kwargs):
         abs_pan = (pan - 64) / 32
-        if prog in cls.soma_long_safe and long:
-            prog = str(prog) + "c"
+        prog = str(prog) + "c" * (prog in cls.soma_long_safe and long)
+        note = str(note) + "d" * bool(half)
         return f"execute as @a at @s run playsound {prog}.{note} voice @s " \
                f"^{-abs_pan} ^ ^{2 - abs(abs_pan)} {v / 255} {pitch}"
 
     @classmethod
-    def get_stop_cmd(cls, prog, note, long, **kwargs):
-        if prog in cls.soma_long_safe and long:
-            prog = str(prog) + "c"
+    def get_stop_cmd(cls, prog, note, long, half, **kwargs):
+        prog = str(prog) + "c" * (prog in cls.soma_long_safe and long)
+        note = str(note) + "d" * bool(half)
         return f"execute as @a at @s run stopsound @s voice {prog}.{note}"
