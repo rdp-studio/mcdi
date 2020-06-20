@@ -169,7 +169,7 @@ if __name__ == '__main__':
     with open("mappings/vanilla_blocks.json") as f:
         MAPPING = loads(f.read())
 
-    PIC_PATH = r"D:\图片\mojave_dynamic_10.jpeg"  # Where you save your picture file.
+    PIC_PATH = r""  # Where you save your picture file.
 
     GAME_DIR = r"D:\Minecraft\.minecraft\versions\1.15.2"  # Your game directory
     WORLD_NAME = r"Template"  # Your world name

@@ -4,8 +4,8 @@ import os
 import re
 import threading
 import time
-from urllib.request import urlopen
 from urllib.error import HTTPError
+from urllib.request import urlopen
 
 from gui_base import *
 
@@ -344,7 +344,6 @@ class MainWindow(MainFrame):
 
                 middle_list = []
                 indexes = self.MiddlesList.GetCheckedItems()
-                print(indexes)
                 middle_strings = self.MiddlesList.GetItems()
                 for index in indexes:
                     params = self.middle_panes[index].params
@@ -371,7 +370,10 @@ class MainWindow(MainFrame):
                 self.ProgressBar.SetValue(0)
                 logging.info("正在读取MIDI文件...")
                 wrap_length = self.WrapLengthSpin.GetValue()
-                generator = Generator(midi_path, frontend, wrap_length, plugins=plugin_list)
+                namespace = self.PackNamespaceInput.GetValue()
+                identifier = self.PackIdentifierInput.GetValue()
+                generator = Generator(midi_path, frontend, namespace, identifier, wrap_length, plugins=plugin_list,
+                                      middles=middle_list)
                 self.ProgressBar.SetValue(100)
 
                 self.ProgressBar.SetValue(0)
@@ -406,8 +408,8 @@ class MainWindow(MainFrame):
                 logging.info("正在生成指令...")
 
                 limitation = self.MaxTickNoteSpin.GetValue()
-                function_based = self.EffectFunctionBased.GetValue()
-                generator.build_events(limitation, function_based, progress_callback=callback)
+                # function_based = self.EffectFunctionBased.GetValue()
+                generator.build_events(progress_callback=callback, limitation=limitation)
                 self.ProgressBar.SetValue(100)
 
                 if not hasattr(self, "saves_path"):
@@ -418,9 +420,7 @@ class MainWindow(MainFrame):
 
                 self.ProgressBar.SetValue(0)
                 logging.info("正在写入指令...")
-                namespace = self.PackNamespaceInput.GetValue()
-                identifier = self.PackIdentifierInput.GetValue()
-                generator.write_func(world_path, namespace, identifier)
+                generator.write_func(wp=world_path)
                 self.ProgressBar.SetValue(100)
 
                 logging.info("生成完成，准备就绪。")

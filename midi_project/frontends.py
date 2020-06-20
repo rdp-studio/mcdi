@@ -8,6 +8,7 @@ class Frontend(object):
     def get_stop_cmd(self, **kwargs):
         pass
 
+
 class Soma(Frontend):
     """The fundamental frontend for project MCDI."""
 

@@ -2,9 +2,6 @@ from midi_project.core import Generator
 
 
 class Plugin(object):
-    def __init__(self):
-        pass
-
     def exec(self, generator: Generator):
         pass
 
@@ -12,13 +9,13 @@ class Plugin(object):
         pass
 
 
-class Progress(object):
+class Progress(Plugin):
     __author__ = "kworker"
     __doc__ = """Simply shows a progress bar"""
 
-    def __init__(self, pk: "The ID for the bossbar, no need to care for in most cases."=0,
-                 text: "The title for the bossbar to show on the top."="MCDI",
-                 color: "The color for the bossbar and the title."="yellow"):
+    def __init__(self, pk: "The ID for the bossbar, no need to care for in most cases." = 0,
+                 text: "The title for the bossbar to show on the top." = "MCDI",
+                 color: "The color for the bossbar and the title." = "yellow"):
         self.pk = pk
         self.text = text
         self.color = color
@@ -60,84 +57,105 @@ class Progress(object):
             generator.y_index += 1
 
 
-class PianoFall(object):
+class PianoFall(Plugin):
     __author__ = "kworker"
     __doc__ = """Shows a fancy piano fall"""
 
-    def __init__(self, front_tick: "How many ticks should the blocks fall before the note plays."=90,
-                 summon_height: "How high should the command blocks summon falling blocks."=100,
-                 note_shift: "Moves the piano fall further away in build axis."=0,
-                 front_shift: "Moves the piano fall further away in wrap axis."=1,
-                 reversed: "The piano fall will be closer to the first command block instead of the last one."=False,
-                 sustain: "Shows a long bar instead of a dot for long notes."=False,
-                 die_commands: "Do the command(s) when a falling block dies." = (),
-                 all_commands: "Do the command(s) for every falling block."=()):
+    def __init__(self, front_tick: "How many ticks before should the command blocks summon falling blocks." = 90,
+                 summon_height: "How high should the command blocks summon falling blocks." = 100,
+                 build_shift: "Moves the piano fall further away in build axis." = 0,
+                 wrap_shift: "Moves the piano fall further away in wrap axis." = 1,
+                 reversed: "Move the piano fall from the first to the last build row." = False,
+                 mapping: "Maps the channels to the colors of the falling blocks." = None,
+                 block_type: "'stained_glass', 'concrete', 'wool' or 'terracotta'" = None):
         self.front_tick = front_tick
         self.sum_y = summon_height
-        self.note_shift = note_shift
-        self.front_shift = front_shift
+        self.build_shift = build_shift
+        self.wrap_shift = wrap_shift
         self.reversed = reversed
-        self.sustain = sustain
-        self.die_commands = die_commands
-        self.all_commands = all_commands
-        self.sustain_notes = []
+        self.mapping = mapping if mapping is not None else [
+            "white", "orange", "magenta", "light_blue", "yellow",
+            "lime", "pink", "gray", "light_gray", "cyan",
+            "purple", "blue", "brown", "green", "red", "black",
+        ]
+        self.block_type = block_type if block_type in ('stained_glass', 'concrete', 'wool', 'terracotta') else "wool"
 
     def init(self, generator: Generator):
         generator.blank_ticks += self.front_tick
 
     def exec(self, generator: Generator):
-        for command in self.die_commands:
-            generator._set_tick_command(x_shift=generator.build_index, y_shift=generator.y_index,
-                                        z_shift=generator.wrap_index,
-                                        command=f"execute as @e[name={generator.tick_count - self.front_tick},type="
-                                                f"minecraft:falling_block] at @s run {command}")
-            generator.y_index += 1
-        for command in self.all_commands:
-            generator._set_tick_command(x_shift=generator.build_index, y_shift=generator.y_index,
-                                        z_shift=generator.wrap_index,
-                                        command=f"execute as @e[type=minecraft:falling_block] at @s run {command}")
-            generator.y_index += 1
-        generator._set_tick_command(x_shift=generator.build_index, y_shift=generator.y_index,
-                                    z_shift=generator.wrap_index,
-                                    command=f"kill @e[name={generator.tick_count - self.front_tick},type=minecraft:falli"
-                                            f"ng_block]")
-        generator.y_index += 1
-
-        on_notes = list(filter(lambda x: x["type"] == "note_on" and x["tick"] == generator.tick_count + self.front_tick,
-                               generator.loaded_messages))
-        if self.sustain:  # Sustained only
-            self.sustain_notes.extend(on_notes)
-            for off_note in filter(
-                    lambda x: x["type"] == "note_off" and x["tick"] == generator.tick_count + self.front_tick,
-                    generator.loaded_messages):
-                map(
-                    lambda end_note: self.sustain_notes.remove(end_note),
-                    filter(lambda x: x["ch"] == off_note["ch"] and x["note"] == off_note["note"], self.sustain_notes)
-                )
-
-        mapping = ["red", "orange", "yellow", "lime", "light_blue", "purple", "magenta", "pink"] * 4
-
-        if self.sustain:  # Sustained only
-            on_notes.extend(self.sustain_notes)
+        on_notes = list()
+        expected_tick = generator.tick_count + self.front_tick
+        for message in generator.loaded_messages:
+            if message["type"] != "note_on":
+                continue
+            if message["tick"] < expected_tick:
+                continue
+            if message["tick"] == expected_tick:
+                on_notes.append(message)
+            if message["tick"] > expected_tick:
+                break
 
         for on_note in on_notes:
-            block_name = f'{mapping[on_note["ch"] - 1]}_stained_glass'
+            block_name = f'{self.mapping[on_note["ch"] - 1]}_{self.block_type}'
             if self.reversed:
-                note_shift = 128 - (on_note["note"] - self.note_shift)
-                summon_cmd = f'summon minecraft:falling_block ~{-generator.build_index + note_shift} ~' \
-                             f'{self.sum_y - generator.y_index} ~{-generator.wrap_index - 1 - self.front_shift} ' \
-                             f'{{BlockState: {{Name: "{block_name}"}}, Time: 1, CustomName: ' \
-                             f'\'"{generator.tick_count}"\'}}'
+                build_shift = self.build_shift - on_note["note"] + 128
+                summon_cmd = f'summon minecraft:falling_block ~{-generator.build_index + build_shift} ~{self.sum_y - generator.y_index} ~{-generator.wrap_index - 1 - self.wrap_shift} {{BlockState:{{Name: "{block_name}"}},Time:1,CustomName:\'"{generator.tick_count}"\'}}'
             else:
-                if not hasattr(self, "end_tick"):
-                    self.end_tick = max(generator.loaded_messages, key=lambda x: x["tick"])["tick"]
-                wrap_sum = self.end_tick // generator.wrap_length + 1
-                note_shift = on_note["note"] - self.note_shift
-                summon_cmd = f'summon minecraft:falling_block ~{-generator.build_index + note_shift} ~' \
-                             f'{self.sum_y - generator.y_index} ' \
-                             f'~{wrap_sum - generator.wrap_index + 1 + self.front_shift}' \
-                             f' {{BlockState: {{Name: "{block_name}"}}, Time: 1, CustomName:' \
-                             f'\'"{generator.tick_count}"\'}}'
+                wrap_sum = generator.tick_sum // generator.wrap_length + 1
+                build_shift = on_note["note"] - self.build_shift
+                summon_cmd = f'summon minecraft:falling_block ~{-generator.build_index + build_shift} ~{self.sum_y - generator.y_index} ~{wrap_sum - generator.wrap_index + 1 + self.wrap_shift}{{BlockState:{{Name:"{block_name}"}},Time:1,CustomName:\'"{generator.tick_count}"\'}}'
             if generator._set_tick_command(x_shift=generator.build_index, y_shift=generator.y_index,
                                            z_shift=generator.wrap_index, command=summon_cmd):
                 generator.y_index += 1
+
+        if generator._set_tick_command(
+                x_shift=generator.build_index, y_shift=generator.y_index, z_shift=generator.wrap_index,
+                command=f"kill @e[name={generator.tick_count - self.front_tick}]"):
+            generator.y_index += 1
+
+
+class PianoRoll(Plugin):
+    __author__ = "kworker"
+    __doc__ = """Shows a fancy piano roll"""
+
+    def __init__(self, wrap_shift: "Moves the piano fall further away in wrap axis." = 1,
+                 y_shift: "Moves the piano fall further away in y axis." = 0,
+                 reversed: "Move the piano fall from the first to the last build row." = False,
+                 mapping: "Maps the channels to the colors of the falling blocks." = None,
+                 block_type: "'stained_glass', 'concrete', 'wool' or 'terracotta'" = None):
+        self.wrap_shift = wrap_shift
+        self.y_shift = y_shift
+        self.reversed = reversed
+        self.mapping = mapping if mapping is not None else [
+            "white", "orange", "magenta", "light_blue", "yellow",
+            "lime", "pink", "gray", "light_gray", "cyan",
+            "purple", "blue", "brown", "green", "red", "black",
+        ]
+        self.block_type = block_type if block_type in ('stained_glass', 'concrete', 'wool', 'terracotta') else "wool"
+
+    def init(self, generator: Generator):
+        from command_types import Function
+
+        generator.wrap_length = float("inf")
+        function = Function(generator.namespace, "pno_roll")
+        for on_note in generator.loaded_messages:
+            if on_note["type"] != "note_on":
+                continue
+            block_name = f'{self.mapping[on_note["ch"] - 1]}_{self.block_type}'
+            if self.reversed:
+                wrap_shift = on_note["note"] - self.wrap_shift - 128
+                function.append(f"forceload remove ~{on_note['tick'] - 1} ~ ~{on_note['tick'] - 1} ~-128")
+                function.append(f"forceload add ~{on_note['tick']} ~ ~{on_note['tick']} ~-128")
+                setblock_cmd = f"setblock ~{on_note['tick']} ~{self.y_shift} ~{wrap_shift} minecraft:{block_name} replace"
+            else:
+                wrap_shift = on_note["note"] + self.wrap_shift
+                function.append(f"forceload remove ~{on_note['tick'] - 1} ~ ~{on_note['tick'] - 1} ~128")
+                function.append(f"forceload add ~{on_note['tick']} ~ ~{on_note['tick']} ~128")
+                setblock_cmd = f"setblock ~{on_note['tick']} ~{self.y_shift} ~{wrap_shift} minecraft:{block_name} replace"
+            function.append(setblock_cmd)
+        function.append(f"forceload remove all")
+        generator.plug_functions.append(function)
+
+    def exec(self, generator: Generator):
+        pass
