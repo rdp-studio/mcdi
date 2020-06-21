@@ -350,7 +350,7 @@ class MainWindow(MainFrame):
 
                 frontend_text = self.FrontendPicker.GetPageText(self.FrontendPicker.GetSelection())
                 frontend_class = re.findall(r"^(.+?)\s\(.*\)$", frontend_text)[0]
-                frontend = getattr(frontends, frontend_class)
+                frontend = getattr(frontends, frontend_class)()
 
                 self.ProgressBar.SetValue(0)
                 logging.info("正在读取MIDI文件...")

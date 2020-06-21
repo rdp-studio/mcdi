@@ -4,12 +4,13 @@ from enum import Enum
 import time
 
 from PIL import Image
+from command_types import *
 
 Directions = Enum("Directions", ("XY", "YZ", "XZ"))
 
 
 class Generator(object):
-    def __init__(self, fp, width=48, height=27, directions=Directions.XY, absolute=None):
+    def __init__(self, fp, width=48, height=27, directions=Directions.XY, absolute=None, namespace="mcdi", func="vid"):
         logging.debug("Initializing generator...")
         logging.debug(f"Loading picture: {fp}.")
         self.img = Image.open(fp=fp)
@@ -17,7 +18,7 @@ class Generator(object):
         self.y = height
         self.directions = directions
         self.absolute = absolute
-        self.built_commands = list()
+        self.built_function = Function(namespace, func)
 
     def build_pixels(self, resample=Image.LANCZOS):
         if self.img.width != self.x and self.img.height != self.y:
@@ -43,40 +44,27 @@ class Generator(object):
         r, g, b = color[:3]
         if self.directions == Directions.XY:
             if not self.absolute:
-                self.built_commands.append(f"particle minecraft:dust {r / 255} {g / 255} {b / 255} 1 ~{x * scale} ~{(self.y - y - 1) * scale} ~ {scale / 4} {scale / 4} 0 1 {count} force\n")
+                self.built_function.append(f"particle minecraft:dust {r / 255} {g / 255} {b / 255} 1 ~{x * scale} ~{(self.y - y - 1) * scale} ~ {scale / 4} {scale / 4} 0 1 {count} force\n")
             else:
                 x_shift, y_shift, z_shift = self.absolute
-                self.built_commands.append(f"particle minecraft:dust {r / 255} {g / 255} {b / 255} 1 {x * scale + x_shift} {(self.y - y - 1) * scale + y_shift} {z_shift} {scale / 4} {scale / 4} 0 1 {count} force\n")
+                self.built_function.append(f"particle minecraft:dust {r / 255} {g / 255} {b / 255} 1 {x * scale + x_shift} {(self.y - y - 1) * scale + y_shift} {z_shift} {scale / 4} {scale / 4} 0 1 {count} force\n")
         elif self.directions == Directions.YZ:
             if not self.absolute:
-                self.built_commands.append(f"particle minecraft:dust {r / 255} {g / 255} {b / 255} 1 ~ ~{x * scale} ~{(self.y - y - 1) * scale} {scale / 4} {scale / 4} 0 1 {count} force\n")
+                self.built_function.append(f"particle minecraft:dust {r / 255} {g / 255} {b / 255} 1 ~ ~{x * scale} ~{(self.y - y - 1) * scale} {scale / 4} {scale / 4} 0 1 {count} force\n")
             else:
                 x_shift, y_shift, z_shift = self.absolute
-                self.built_commands.append(f"particle minecraft:dust {r / 255} {g / 255} {b / 255} 1 {z_shift} {x * scale + x_shift} {(self.y - y - 1) * scale + y_shift} 0 {scale / 4} {scale / 4} 1 {count} force\n")
+                self.built_function.append(f"particle minecraft:dust {r / 255} {g / 255} {b / 255} 1 {z_shift} {x * scale + x_shift} {(self.y - y - 1) * scale + y_shift} 0 {scale / 4} {scale / 4} 1 {count} force\n")
         elif self.directions == Directions.XZ:
             if not self.absolute:
-                self.built_commands.append(f"particle minecraft:dust {r / 255} {g / 255} {b / 255} 1 ~{x * scale} ~ ~{(self.y - y - 1) * scale} {scale / 4} {scale / 4} 0 1 {count} force\n")
+                self.built_function.append(f"particle minecraft:dust {r / 255} {g / 255} {b / 255} 1 ~{x * scale} ~ ~{(self.y - y - 1) * scale} {scale / 4} {scale / 4} 0 1 {count} force\n")
             else:
                 x_shift, y_shift, z_shift = self.absolute
-                self.built_commands.append(f"particle minecraft:dust {r / 255} {g / 255} {b / 255} 1 {x * scale + x_shift} {z_shift} {(self.y - y - 1) * scale + y_shift} {scale / 4} 0 {scale / 4} 1 {count} force\n")
+                self.built_function.append(f"particle minecraft:dust {r / 255} {g / 255} {b / 255} 1 {x * scale + x_shift} {z_shift} {(self.y - y - 1) * scale + y_shift} {scale / 4} 0 {scale / 4} 1 {count} force\n")
 
-    def write_func(self, wp, namespace="mcdi", func="picture"):
-        logging.info(f"Writing {(length := len(self.built_commands))} command(s) built.")
-        if length >= 65536:
-            logging.warning("Notice: please try this command as your picture function is longer than 65536 line(s).")
-            logging.warning("Try this: /gamerule maxCommandChainLength %d" % (length + 1))  # Too long
-
-        if os.path.exists(wp):
-            os.makedirs(os.path.join(wp, r"datapacks\MCDI\data\%s\functions" % namespace), exist_ok=True)
-        else:
-            raise FileNotFoundError("World path or Minecraft path does not exist!")
-        with open(os.path.join(wp, r"datapacks\MCDI\pack.mcmeta"), "w") as file:
-            file.write('{"pack":{"pack_format":233,"description":"Made by MCDI, a project by kworker(FrankYang)."}}')
-        with open(os.path.join(wp, r"datapacks\MCDI\data\%s\functions\%s.mcfunction" % (namespace, func)), "w") as file:
-            file.writelines(self.built_commands)
+    def write_func(self, *args, **kwargs):
+        logging.info(f"Writing {len(self.built_function)} command(s) built.")
+        self.built_function.write(*args, **kwargs)
         logging.info("Write process finished.")
-        logging.debug("To run the picture function: '/reload'")
-        logging.debug(f"Then: '/function {namespace}:{func}'")
 
 
 if __name__ == '__main__':

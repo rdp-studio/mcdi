@@ -9,12 +9,24 @@ class RelPos(object):
     def __init__(self, pos):
         self.offset = pos
 
+    def __add__(self, other):
+        self.offset += other
+
+    def __int__(self):
+        return self.offset
+
     def __str__(self):
         return f"~{self.offset}"
 
 class LocalPos(object):
     def __init__(self, pos):
         self.offset = pos
+
+    def __add__(self, other):
+        self.offset += other
+
+    def __int__(self):
+        return self.offset
 
     def __str__(self):
         return f"^{self.offset}"
@@ -61,3 +73,9 @@ class Particle(Command):
 
     def __init__(self, name, x=RelPos(0), y=RelPos(0), z=RelPos(0), dx=0, dy=0, dz=0, speed=0, count=0):
         self.args = name, x, y, z, dx, dy, dz, speed, count
+
+class SetBlock(Command):
+    base = "setblock"
+
+    def __init__(self, x, y, z, name, data="", nbt="", handler="replace"):
+        self.args = x, y, z, name, data, nbt, handler

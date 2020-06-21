@@ -5,12 +5,12 @@ Python 3.8.x
 Minecraft 1.15.x
 """
 
-import logging
 import math
-import os
 from enum import Enum
 
 from PIL import Image
+
+from command_types import *
 
 Directions = Enum("Directions", ("XY", "YZ", "XZ"))
 Model = Enum("Model", ("RGB", "HSV"))
@@ -66,7 +66,7 @@ def rgb2hsv(r, g, b):
 
 
 class Generator(object):
-    def __init__(self, fp, mappings, width=256, height=144, directions=Directions.XY, absolute=None, model=Model.RGB):
+    def __init__(self, fp, mappings, width=256, height=144, directions=Directions.XY, absolute=None, model=Model.RGB, namespace="mcdi", func="pic"):
         logging.debug("Initializing generator...")
         self.mappings = mappings
         logging.debug(f"Loading picture: {fp}.")
@@ -76,7 +76,7 @@ class Generator(object):
         self.directions = directions
         self.absolute = absolute
         self.model = model
-        self.built_commands = list()
+        self.built_function = Function(namespace, func)
 
     def build_pixels(self, resample=Image.LANCZOS):
         if self.img.width != self.x and self.img.height != self.y:
@@ -94,7 +94,7 @@ class Generator(object):
                 nearest_item = None
                 minimums = 255 * 3 + 1
                 for mapping in self.mappings:
-                    for item in mapping:
+                    for item in mapping:  # Calculates the difference
                         if self.model == Model.RGB:
                             color = item["color"]
                             r_diff = abs(color[0] - pixel[0])
@@ -124,43 +124,30 @@ class Generator(object):
     def set_block(self, x, y, block):
         if self.directions == Directions.XY:
             if not self.absolute:
-                self.built_commands.append(f"setblock ~{x} ~{self.y - y - 1} ~ minecraft:{block} replace\n")
+                self.built_function.append(f"setblock ~{x} ~{self.y - y - 1} ~ minecraft:{block} replace\n")
             else:
                 x_shift, y_shift, z_shift = self.absolute
-                self.built_commands.append(f"setblock {x + x_shift} {self.y - y - 1 + y_shift} {z_shift} "
+                self.built_function.append(f"setblock {x + x_shift} {self.y - y - 1 + y_shift} {z_shift} "
                                            f"minecraft:{block} replace\n")
         elif self.directions == Directions.YZ:
             if not self.absolute:
-                self.built_commands.append(f"setblock ~ ~{x} ~{self.y - y - 1} minecraft:{block} replace\n")
+                self.built_function.append(f"setblock ~ ~{x} ~{self.y - y - 1} minecraft:{block} replace\n")
             else:
                 x_shift, y_shift, z_shift = self.absolute
-                self.built_commands.append(f"setblock {z_shift} {x + x_shift} {self.y - y - 1 + y_shift} "
+                self.built_function.append(f"setblock {z_shift} {x + x_shift} {self.y - y - 1 + y_shift} "
                                            f"minecraft:{block} replace\n")
         elif self.directions == Directions.XZ:
             if not self.absolute:
-                self.built_commands.append(f"setblock ~{x} ~ ~{self.y - y - 1} minecraft:{block} replace\n")
+                self.built_function.append(f"setblock ~{x} ~ ~{self.y - y - 1} minecraft:{block} replace\n")
             else:
                 x_shift, y_shift, z_shift = self.absolute
-                self.built_commands.append(f"setblock {x + x_shift} {z_shift} {self.y - y - 1 + y_shift} "
+                self.built_function.append(f"setblock {x + x_shift} {z_shift} {self.y - y - 1 + y_shift} "
                                            f"minecraft:{block} replace\n")
 
-    def write_func(self, wp, namespace="mcdi", func="picture"):
-        logging.info(f"Writing {(length := len(self.built_commands))} command(s) built.")
-        if length >= 65536:
-            logging.warning("Notice: please try this command as your picture function is longer than 65536 line(s).")
-            logging.warning("Try this: /gamerule maxCommandChainLength %d" % (length + 1))  # Too long
-
-        if os.path.exists(wp):
-            os.makedirs(os.path.join(wp, r"datapacks\MCDI\data\%s\functions" % namespace), exist_ok=True)
-        else:
-            raise FileNotFoundError("World path or Minecraft path does not exist!")
-        with open(os.path.join(wp, r"datapacks\MCDI\pack.mcmeta"), "w") as file:
-            file.write('{"pack":{"pack_format":233,"description":"Made by MCDI, a project by kworker(FrankYang)."}}')
-        with open(os.path.join(wp, r"datapacks\MCDI\data\%s\functions\%s.mcfunction" % (namespace, func)), "w") as file:
-            file.writelines(self.built_commands)
+    def write_func(self, *args, **kwargs):
+        logging.info(f"Writing {len(self.built_function)} command(s) built.")
+        self.built_function.write(*args, **kwargs)
         logging.info("Write process finished.")
-        logging.debug("To run the picture function: '/reload'")
-        logging.debug(f"Then: '/function {namespace}:{func}'")
 
 
 if __name__ == '__main__':
