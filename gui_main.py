@@ -348,9 +348,9 @@ class MainWindow(MainFrame):
                         wx.MessageBox(f"尚未选定MIDI路径。", "提示", wx.OK | wx.ICON_INFORMATION)
                     raise StopIteration
 
-                frontend_text = self.FrontendPicker.GetPageText(self.FrontendPicker.GetSelection())
+                frontend_text = self.FrontendPicker.GetPageText(index := self.FrontendPicker.GetSelection())
                 frontend_class = re.findall(r"^(.+?)\s\(.*\)$", frontend_text)[0]
-                frontend = getattr(frontends, frontend_class)()
+                frontend = getattr(frontends, frontend_class)(**self.frontend_panes[index].params)
 
                 self.ProgressBar.SetValue(0)
                 logging.info("正在读取MIDI文件...")

@@ -326,6 +326,8 @@ class Generator(mido.MidiFile):
         logging.debug(f"Estimated duration: {self.tick_count / 20} second(s)。")
 
     def write_func(self, *args, **kwargs):
+        self.built_function.append(f"gamerule commandBlockOutput false")
+
         logging.info(f"Writing {len(self.built_function)} command(s) built.")
         for i, function in enumerate(self.plug_functions):
             self.built_function.append(f"schedule function {function.id[0]}:{function.id[1]} {i + 1}")
