@@ -264,15 +264,10 @@ class MainWindow(MainFrame):
 
     def frontends_init(self):
         from midi_project import frontends
-        from midi_project.core import Generator
 
-        frontend_items = filter(
-            lambda x: not x.startswith("_"), dir(frontends)
-        )
-
-        for frontend_item in frontend_items:
+        for frontend_item in dir(frontends):
             frontend: frontends.Frontend = getattr(frontends, frontend_item)
-            if (frontend is not frontends.Frontend) and (frontend is not Generator):
+            if type(f := frontend) is type and f is not frontends.Frontend and issubclass(f, frontends.Frontend):
                 self.frontend_panes.append(ConfigPage(self.FrontendPicker, frontend))
 
     def check_namespace_state(self, event=None):
@@ -291,15 +286,10 @@ class MainWindow(MainFrame):
 
     def plugins_init(self):
         from midi_project import plugins
-        from midi_project.core import Generator
 
-        plugin_items = filter(
-            lambda x: not x.startswith("_"), dir(plugins)
-        )
-
-        for plugin_item in plugin_items:
+        for plugin_item in dir(plugins):
             plugin: plugins.Plugin = getattr(plugins, plugin_item)
-            if (plugin is not plugins.Plugin) and (plugin is not Generator):
+            if type(p := plugin) is type and p is not plugins.Plugin and issubclass(p, plugins.Plugin):
                 self.plugin_panes.append(ConfigPage(self.PluginsPicker, plugin))
 
                 self.PluginsList.Append(
@@ -308,15 +298,10 @@ class MainWindow(MainFrame):
 
     def middles_init(self):
         from midi_project import middlewares
-        from midi_project.core import Generator
 
-        middle_items = filter(
-            lambda x: not x.startswith("_"), dir(middlewares)
-        )
-
-        for middle_item in middle_items:
+        for middle_item in dir(middlewares):
             middle: middlewares.Middleware = getattr(middlewares, middle_item)
-            if (middle is not middlewares.Middleware) and (middle is not Generator):
+            if type(m := middle) is type and m is not middlewares.Middleware and issubclass(m, middlewares.Middleware):
                 self.middle_panes.append(ConfigPage(self.MiddlesPicker, middle))
 
                 self.MiddlesList.Append(

@@ -58,13 +58,13 @@ class Generator(mido.MidiFile):
 
         min_time_diff = 1
         best_tick_rate = 1 / (expected_len * 20 / max_tick)
-        i = floor(min_allow) if strict else min_allow
+        i = minimum = floor(min_allow) if strict else min_allow
         maximum = ceil(max_allow) if strict else max_allow
-        estimate_count = (maximum - i) / step
+        estimated_count = (maximum - i) / step
         count = 0
 
         while i < maximum:
-            logging.debug(f"Trying tick rate: {i} within the limitation.")
+            logging.debug(f"Trying tick rate: {i} between {minimum} and {maximum}.")
             time_diff_sum = 0
             message_sum = 0
             for _, track in enumerate(self.tracks):
@@ -76,16 +76,16 @@ class Generator(mido.MidiFile):
                     message_sum += 1
                     time_accum += message.time
             time_diff_sum /= message_sum
-            logging.debug(f"Average round difference: {time_diff_sum}.")
+            logging.debug(f"Average round difference for tick rate {i}: {time_diff_sum}.")
             if time_diff_sum < min_time_diff:
                 min_time_diff = time_diff_sum
                 best_tick_rate = i
             i += step
             count += 1
 
-            progress_callback(count, estimate_count)
+            progress_callback(count, estimated_count)
 
-        logging.info(f"Best tick rate found: {best_tick_rate}.")
+        logging.info(f"The best tick rate found: {best_tick_rate}.")
         self.tick_rate = best_tick_rate
 
     def long_note_analysis(self, threshold=40, progress_callback=lambda x, y: None):
