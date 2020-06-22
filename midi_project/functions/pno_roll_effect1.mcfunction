@@ -1,0 +1,145 @@
+particle minecraft:end_rod ~-0.1 ~0.5 ~0.5 0 1 0 0.25 0 force
+particle minecraft:end_rod ~-0.2 ~0.5 ~0.5 0 1 0 0.25 0 force
+particle minecraft:end_rod ~-0.3 ~0.5 ~0.5 0 1 0 0.25 0 force
+particle minecraft:end_rod ~-0.4 ~0.5 ~0.5 0 1 0 0.25 0 force
+particle minecraft:end_rod ~-0.5 ~0.5 ~0.5 0 1 0 0.25 0 force
+particle minecraft:end_rod ~ ~0.5 ~0.5 0 1 0 0.25 0 force
+particle minecraft:end_rod ~0.1 ~0.5 ~0.5 0 1 0 0.25 0 force
+particle minecraft:end_rod ~0.2 ~0.5 ~0.5 0 1 0 0.25 0 force
+particle minecraft:end_rod ~0.3 ~0.5 ~0.5 0 1 0 0.25 0 force
+particle minecraft:end_rod ~0.4 ~0.5 ~0.5 0 1 0 0.25 0 force
+particle minecraft:end_rod ~0.5 ~0.5 ~0.5 0 1 0 0.25 0 force
+
+particle minecraft:end_rod ~-0.1 ~-0.5 ~0.5 0 1 0 0.25 0 force
+particle minecraft:end_rod ~-0.2 ~-0.5 ~0.5 0 1 0 0.25 0 force
+particle minecraft:end_rod ~-0.3 ~-0.5 ~0.5 0 1 0 0.25 0 force
+particle minecraft:end_rod ~-0.4 ~-0.5 ~0.5 0 1 0 0.25 0 force
+particle minecraft:end_rod ~-0.5 ~-0.5 ~0.5 0 1 0 0.25 0 force
+particle minecraft:end_rod ~ ~-0.5 ~0.5 0 1 0 0.25 0 force
+particle minecraft:end_rod ~0.1 ~-0.5 ~0.5 0 1 0 0.25 0 force
+particle minecraft:end_rod ~0.2 ~-0.5 ~0.5 0 1 0 0.25 0 force
+particle minecraft:end_rod ~0.3 ~-0.5 ~0.5 0 1 0 0.25 0 force
+particle minecraft:end_rod ~0.4 ~-0.5 ~0.5 0 1 0 0.25 0 force
+particle minecraft:end_rod ~0.5 ~-0.5 ~0.5 0 1 0 0.25 0 force
+
+particle minecraft:end_rod ~-0.1 ~0.5 ~-0.5 0 1 0 0.25 0 force
+particle minecraft:end_rod ~-0.2 ~0.5 ~-0.5 0 1 0 0.25 0 force
+particle minecraft:end_rod ~-0.3 ~0.5 ~-0.5 0 1 0 0.25 0 force
+particle minecraft:end_rod ~-0.4 ~0.5 ~-0.5 0 1 0 0.25 0 force
+particle minecraft:end_rod ~-0.5 ~0.5 ~-0.5 0 1 0 0.25 0 force
+particle minecraft:end_rod ~ ~0.5 ~-0.5 0 1 0 0.25 0 force
+particle minecraft:end_rod ~0.1 ~0.5 ~-0.5 0 1 0 0.25 0 force
+particle minecraft:end_rod ~0.2 ~0.5 ~-0.5 0 1 0 0.25 0 force
+particle minecraft:end_rod ~0.3 ~0.5 ~-0.5 0 1 0 0.25 0 force
+particle minecraft:end_rod ~0.4 ~0.5 ~-0.5 0 1 0 0.25 0 force
+particle minecraft:end_rod ~0.5 ~0.5 ~-0.5 0 1 0 0.25 0 force
+
+particle minecraft:end_rod ~-0.1 ~-0.5 ~-0.5 0 1 0 0.25 0 force
+particle minecraft:end_rod ~-0.2 ~-0.5 ~-0.5 0 1 0 0.25 0 force
+particle minecraft:end_rod ~-0.3 ~-0.5 ~-0.5 0 1 0 0.25 0 force
+particle minecraft:end_rod ~-0.4 ~-0.5 ~-0.5 0 1 0 0.25 0 force
+particle minecraft:end_rod ~-0.5 ~-0.5 ~-0.5 0 1 0 0.25 0 force
+particle minecraft:end_rod ~ ~-0.5 ~-0.5 0 1 0 0.25 0 force
+particle minecraft:end_rod ~0.1 ~-0.5 ~-0.5 0 1 0 0.25 0 force
+particle minecraft:end_rod ~0.2 ~-0.5 ~-0.5 0 1 0 0.25 0 force
+particle minecraft:end_rod ~0.3 ~-0.5 ~-0.5 0 1 0 0.25 0 force
+particle minecraft:end_rod ~0.4 ~-0.5 ~-0.5 0 1 0 0.25 0 force
+particle minecraft:end_rod ~0.5 ~-0.5 ~-0.5 0 1 0 0.25 0 force
+
+
+particle minecraft:end_rod ~0.5 ~0.5 ~-0.1 0 1 0 0.25 0 force
+particle minecraft:end_rod ~0.5 ~0.5 ~-0.2 0 1 0 0.25 0 force
+particle minecraft:end_rod ~0.5 ~0.5 ~-0.3 0 1 0 0.25 0 force
+particle minecraft:end_rod ~0.5 ~0.5 ~-0.4 0 1 0 0.25 0 force
+particle minecraft:end_rod ~0.5 ~0.5 ~-0.5 0 1 0 0.25 0 force
+particle minecraft:end_rod ~0.5 ~0.5 ~ 0 1 0 0.25 0 force
+particle minecraft:end_rod ~0.5 ~0.5 ~0.1 0 1 0 0.25 0 force
+particle minecraft:end_rod ~0.5 ~0.5 ~0.2 0 1 0 0.25 0 force
+particle minecraft:end_rod ~0.5 ~0.5 ~0.3 0 1 0 0.25 0 force
+particle minecraft:end_rod ~0.5 ~0.5 ~0.4 0 1 0 0.25 0 force
+particle minecraft:end_rod ~0.5 ~0.5 ~0.5 0 1 0 0.25 0 force
+
+particle minecraft:end_rod ~-0.5 ~0.5 ~-0.1 0 1 0 0.25 0 force
+particle minecraft:end_rod ~-0.5 ~0.5 ~-0.2 0 1 0 0.25 0 force
+particle minecraft:end_rod ~-0.5 ~0.5 ~-0.3 0 1 0 0.25 0 force
+particle minecraft:end_rod ~-0.5 ~0.5 ~-0.4 0 1 0 0.25 0 force
+particle minecraft:end_rod ~-0.5 ~0.5 ~-0.5 0 1 0 0.25 0 force
+particle minecraft:end_rod ~-0.5 ~0.5 ~ 0 1 0 0.25 0 force
+particle minecraft:end_rod ~-0.5 ~0.5 ~0.1 0 1 0 0.25 0 force
+particle minecraft:end_rod ~-0.5 ~0.5 ~0.2 0 1 0 0.25 0 force
+particle minecraft:end_rod ~-0.5 ~0.5 ~0.3 0 1 0 0.25 0 force
+particle minecraft:end_rod ~-0.5 ~0.5 ~0.4 0 1 0 0.25 0 force
+particle minecraft:end_rod ~-0.5 ~0.5 ~0.5 0 1 0 0.25 0 force
+
+particle minecraft:end_rod ~0.5 ~-0.5 ~-0.1 0 1 0 0.25 0 force
+particle minecraft:end_rod ~0.5 ~-0.5 ~-0.2 0 1 0 0.25 0 force
+particle minecraft:end_rod ~0.5 ~-0.5 ~-0.3 0 1 0 0.25 0 force
+particle minecraft:end_rod ~0.5 ~-0.5 ~-0.4 0 1 0 0.25 0 force
+particle minecraft:end_rod ~0.5 ~-0.5 ~-0.5 0 1 0 0.25 0 force
+particle minecraft:end_rod ~0.5 ~-0.5 ~ 0 1 0 0.25 0 force
+particle minecraft:end_rod ~0.5 ~-0.5 ~0.1 0 1 0 0.25 0 force
+particle minecraft:end_rod ~0.5 ~-0.5 ~0.2 0 1 0 0.25 0 force
+particle minecraft:end_rod ~0.5 ~-0.5 ~0.3 0 1 0 0.25 0 force
+particle minecraft:end_rod ~0.5 ~-0.5 ~0.4 0 1 0 0.25 0 force
+particle minecraft:end_rod ~0.5 ~-0.5 ~0.5 0 1 0 0.25 0 force
+
+particle minecraft:end_rod ~-0.5 ~-0.5 ~-0.1 0 1 0 0.25 0 force
+particle minecraft:end_rod ~-0.5 ~-0.5 ~-0.2 0 1 0 0.25 0 force
+particle minecraft:end_rod ~-0.5 ~-0.5 ~-0.3 0 1 0 0.25 0 force
+particle minecraft:end_rod ~-0.5 ~-0.5 ~-0.4 0 1 0 0.25 0 force
+particle minecraft:end_rod ~-0.5 ~-0.5 ~-0.5 0 1 0 0.25 0 force
+particle minecraft:end_rod ~-0.5 ~-0.5 ~ 0 1 0 0.25 0 force
+particle minecraft:end_rod ~-0.5 ~-0.5 ~0.1 0 1 0 0.25 0 force
+particle minecraft:end_rod ~-0.5 ~-0.5 ~0.2 0 1 0 0.25 0 force
+particle minecraft:end_rod ~-0.5 ~-0.5 ~0.3 0 1 0 0.25 0 force
+particle minecraft:end_rod ~-0.5 ~-0.5 ~0.4 0 1 0 0.25 0 force
+particle minecraft:end_rod ~-0.5 ~-0.5 ~0.5 0 1 0 0.25 0 force
+
+
+particle minecraft:end_rod ~0.5 ~-0.1 ~0.5 0 1 0 0.25 0 force
+particle minecraft:end_rod ~0.5 ~-0.2 ~0.5 0 1 0 0.25 0 force
+particle minecraft:end_rod ~0.5 ~-0.3 ~0.5 0 1 0 0.25 0 force
+particle minecraft:end_rod ~0.5 ~-0.4 ~0.5 0 1 0 0.25 0 force
+particle minecraft:end_rod ~0.5 ~-0.5 ~0.5 0 1 0 0.25 0 force
+particle minecraft:end_rod ~0.5 ~ ~0.5 0 1 0 0.25 0 force
+particle minecraft:end_rod ~0.5 ~0.1 ~0.5 0 1 0 0.25 0 force
+particle minecraft:end_rod ~0.5 ~0.2 ~0.5 0 1 0 0.25 0 force
+particle minecraft:end_rod ~0.5 ~0.3 ~0.5 0 1 0 0.25 0 force
+particle minecraft:end_rod ~0.5 ~0.4 ~0.5 0 1 0 0.25 0 force
+particle minecraft:end_rod ~0.5 ~0.5 ~0.5 0 1 0 0.25 0 force
+
+particle minecraft:end_rod ~-0.5 ~-0.1 ~0.5 0 1 0 0.25 0 force
+particle minecraft:end_rod ~-0.5 ~-0.2 ~0.5 0 1 0 0.25 0 force
+particle minecraft:end_rod ~-0.5 ~-0.3 ~0.5 0 1 0 0.25 0 force
+particle minecraft:end_rod ~-0.5 ~-0.4 ~0.5 0 1 0 0.25 0 force
+particle minecraft:end_rod ~-0.5 ~-0.5 ~0.5 0 1 0 0.25 0 force
+particle minecraft:end_rod ~-0.5 ~ ~0.5 0 1 0 0.25 0 force
+particle minecraft:end_rod ~-0.5 ~0.1 ~0.5 0 1 0 0.25 0 force
+particle minecraft:end_rod ~-0.5 ~0.2 ~0.5 0 1 0 0.25 0 force
+particle minecraft:end_rod ~-0.5 ~0.3 ~0.5 0 1 0 0.25 0 force
+particle minecraft:end_rod ~-0.5 ~0.4 ~0.5 0 1 0 0.25 0 force
+particle minecraft:end_rod ~-0.5 ~0.5 ~0.5 0 1 0 0.25 0 force
+
+particle minecraft:end_rod ~0.5 ~-0.1 ~-0.5 0 1 0 0.25 0 force
+particle minecraft:end_rod ~0.5 ~-0.2 ~-0.5 0 1 0 0.25 0 force
+particle minecraft:end_rod ~0.5 ~-0.3 ~-0.5 0 1 0 0.25 0 force
+particle minecraft:end_rod ~0.5 ~-0.4 ~-0.5 0 1 0 0.25 0 force
+particle minecraft:end_rod ~0.5 ~-0.5 ~-0.5 0 1 0 0.25 0 force
+particle minecraft:end_rod ~0.5 ~ ~-0.5 0 1 0 0.25 0 force
+particle minecraft:end_rod ~0.5 ~0.1 ~-0.5 0 1 0 0.25 0 force
+particle minecraft:end_rod ~0.5 ~0.2 ~-0.5 0 1 0 0.25 0 force
+particle minecraft:end_rod ~0.5 ~0.3 ~-0.5 0 1 0 0.25 0 force
+particle minecraft:end_rod ~0.5 ~0.4 ~-0.5 0 1 0 0.25 0 force
+particle minecraft:end_rod ~0.5 ~0.5 ~-0.5 0 1 0 0.25 0 force
+
+particle minecraft:end_rod ~-0.5 ~-0.1 ~-0.5 0 1 0 0.25 0 force
+particle minecraft:end_rod ~-0.5 ~-0.2 ~-0.5 0 1 0 0.25 0 force
+particle minecraft:end_rod ~-0.5 ~-0.3 ~-0.5 0 1 0 0.25 0 force
+particle minecraft:end_rod ~-0.5 ~-0.4 ~-0.5 0 1 0 0.25 0 force
+particle minecraft:end_rod ~-0.5 ~-0.5 ~-0.5 0 1 0 0.25 0 force
+particle minecraft:end_rod ~-0.5 ~ ~-0.5 0 1 0 0.25 0 force
+particle minecraft:end_rod ~-0.5 ~0.1 ~-0.5 0 1 0 0.25 0 force
+particle minecraft:end_rod ~-0.5 ~0.2 ~-0.5 0 1 0 0.25 0 force
+particle minecraft:end_rod ~-0.5 ~0.3 ~-0.5 0 1 0 0.25 0 force
+particle minecraft:end_rod ~-0.5 ~0.4 ~-0.5 0 1 0 0.25 0 force
+particle minecraft:end_rod ~-0.5 ~0.5 ~-0.5 0 1 0 0.25 0 force

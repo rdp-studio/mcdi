@@ -44,22 +44,22 @@ class Generator(object):
         r, g, b = color[:3]
         if self.directions == Directions.XY:
             if not self.absolute:
-                self.built_function.append(f"particle minecraft:dust {r / 255} {g / 255} {b / 255} 1 ~{x * scale} ~{(self.y - y - 1) * scale} ~ {scale / 4} {scale / 4} 0 1 {count} force\n")
+                self.built_function.append(f"particle minecraft:dust {r / 255} {g / 255} {b / 255} 1 ~{x * scale} ~{(self.y - y - 1) * scale} ~ {scale / 4} {scale / 4} 0 1 {count} force")
             else:
                 x_shift, y_shift, z_shift = self.absolute
-                self.built_function.append(f"particle minecraft:dust {r / 255} {g / 255} {b / 255} 1 {x * scale + x_shift} {(self.y - y - 1) * scale + y_shift} {z_shift} {scale / 4} {scale / 4} 0 1 {count} force\n")
+                self.built_function.append(f"particle minecraft:dust {r / 255} {g / 255} {b / 255} 1 {x * scale + x_shift} {(self.y - y - 1) * scale + y_shift} {z_shift} {scale / 4} {scale / 4} 0 1 {count} force")
         elif self.directions == Directions.YZ:
             if not self.absolute:
-                self.built_function.append(f"particle minecraft:dust {r / 255} {g / 255} {b / 255} 1 ~ ~{x * scale} ~{(self.y - y - 1) * scale} {scale / 4} {scale / 4} 0 1 {count} force\n")
+                self.built_function.append(f"particle minecraft:dust {r / 255} {g / 255} {b / 255} 1 ~ ~{x * scale} ~{(self.y - y - 1) * scale} {scale / 4} {scale / 4} 0 1 {count} force")
             else:
                 x_shift, y_shift, z_shift = self.absolute
-                self.built_function.append(f"particle minecraft:dust {r / 255} {g / 255} {b / 255} 1 {z_shift} {x * scale + x_shift} {(self.y - y - 1) * scale + y_shift} 0 {scale / 4} {scale / 4} 1 {count} force\n")
+                self.built_function.append(f"particle minecraft:dust {r / 255} {g / 255} {b / 255} 1 {z_shift} {x * scale + x_shift} {(self.y - y - 1) * scale + y_shift} 0 {scale / 4} {scale / 4} 1 {count} force")
         elif self.directions == Directions.XZ:
             if not self.absolute:
-                self.built_function.append(f"particle minecraft:dust {r / 255} {g / 255} {b / 255} 1 ~{x * scale} ~ ~{(self.y - y - 1) * scale} {scale / 4} {scale / 4} 0 1 {count} force\n")
+                self.built_function.append(f"particle minecraft:dust {r / 255} {g / 255} {b / 255} 1 ~{x * scale} ~ ~{(self.y - y - 1) * scale} {scale / 4} {scale / 4} 0 1 {count} force")
             else:
                 x_shift, y_shift, z_shift = self.absolute
-                self.built_function.append(f"particle minecraft:dust {r / 255} {g / 255} {b / 255} 1 {x * scale + x_shift} {z_shift} {(self.y - y - 1) * scale + y_shift} {scale / 4} 0 {scale / 4} 1 {count} force\n")
+                self.built_function.append(f"particle minecraft:dust {r / 255} {g / 255} {b / 255} 1 {x * scale + x_shift} {z_shift} {(self.y - y - 1) * scale + y_shift} {scale / 4} 0 {scale / 4} 1 {count} force")
 
     def write_func(self, *args, **kwargs):
         logging.info(f"Writing {len(self.built_function)} command(s) built.")

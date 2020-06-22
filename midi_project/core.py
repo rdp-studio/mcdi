@@ -5,12 +5,12 @@ Python 3.8.x
 Minecraft 1.15.x
 """
 
-from math import floor, ceil
+from math import ceil, floor
 from time import time
+import logging
+from command_types import *
 
 import mido
-
-from command_types import *
 
 
 class Generator(mido.MidiFile):
@@ -32,7 +32,8 @@ class Generator(mido.MidiFile):
         self.loaded_messages = list()
         self.namespace = namespace
         self.built_function = Function(namespace, func)
-        self.plug_functions = list()
+        self.initial_functions = list()
+        self.extended_functions = list()
         self.tempo = 5E5
 
         self.id = int(time())
@@ -278,18 +279,14 @@ class Generator(mido.MidiFile):
             self.wrap_index = self.build_count // self.wrap_length
 
             if (self.build_count + 1) % self.wrap_length == 0:
-                self._set_command_block(x_shift=self.build_index, y_shift=self.y_index, z_shift=self.wrap_index,
-                                        chain=False, auto=False,
-                                        command=self.get_front_shift_cmd(1 - self.wrap_length, -1, 1))
+                self._set_command_block(chain=False, auto=False,
+                                        command=self._set_red_block(1 - self.wrap_length, -1, 1))
                 self.y_index += 1
             else:
-                self._set_command_block(x_shift=self.build_index, y_shift=self.y_index, z_shift=self.wrap_index,
-                                        chain=False, auto=False,
-                                        command=self.get_front_shift_cmd(1, -1, 0))
+                self._set_command_block(chain=False, auto=False, command=self._set_red_block(1, -1, 0))
                 self.y_index += 1
 
-            self._set_command_block(x_shift=self.build_index, y_shift=self.y_index, z_shift=self.wrap_index,
-                                    command=self.get_deactivate_cmd(0, -2, 0))
+            self._set_command_block(command=self._set_air_block(0, -2, 0))
             self.y_index += 1
 
             while (m := self.loaded_messages) and m[0]["tick"] == self.tick_count:
@@ -301,13 +298,11 @@ class Generator(mido.MidiFile):
                 if count > limitation:
                     break
                 if message["type"] == "note_on":
-                    if self._set_tick_command(x_shift=self.build_index, y_shift=self.y_index, z_shift=self.wrap_index,
-                                              command=self.get_play_cmd(message)):
+                    if self._set_tick_command(command=self.get_play_cmd(message)):
                         self.y_index += 1
                     count += 1
                 elif message["type"] == "note_off":
-                    if self._set_tick_command(x_shift=self.build_index, y_shift=self.y_index, z_shift=self.wrap_index,
-                                              command=self.get_stop_cmd(message)):
+                    if self._set_tick_command(command=self.get_stop_cmd(message)):
                         self.y_index += 1
                     count += 1
 
@@ -329,10 +324,10 @@ class Generator(mido.MidiFile):
         self.built_function.append(f"gamerule commandBlockOutput false")
 
         logging.info(f"Writing {len(self.built_function)} command(s) built.")
-        for i, function in enumerate(self.plug_functions):
-            self.built_function.append(f"schedule function {function.id[0]}:{function.id[1]} {i + 1}")
+        for i, function in enumerate(self.initial_functions):
+            self.built_function.append(f"schedule function {function.id[0]}:{function.id[1]} {i + 1}s")
         self.built_function.write(*args, **kwargs)
-        for function in self.plug_functions:
+        for function in self.initial_functions + self.extended_functions:
             function.write(*args, **kwargs)
         logging.info("Write process finished.")
 
@@ -343,11 +338,11 @@ class Generator(mido.MidiFile):
         return self.frontend.get_stop_cmd(**message)
 
     @staticmethod
-    def get_front_shift_cmd(x_shift, y_shift, z_shift):
+    def _set_red_block(x_shift, y_shift, z_shift):
         return f"setblock ~{x_shift} ~{y_shift} ~{z_shift} minecraft:redstone_block replace"
 
     @staticmethod
-    def get_deactivate_cmd(x_shift, y_shift, z_shift):
+    def _set_air_block(x_shift, y_shift, z_shift):
         return f"setblock ~{x_shift} ~{y_shift} ~{z_shift} minecraft:air replace"
 
     def _set_tick_command(self, command=None, *args, **kwargs):
@@ -356,7 +351,13 @@ class Generator(mido.MidiFile):
         command = command.replace("\"", r"\"")
         return self._set_command_block(command=command, *args, **kwargs)
 
-    def _set_command_block(self, x_shift, y_shift, z_shift, chain=True, auto=True, command=None, facing="up"):
+    def _set_command_block(self, x_shift=None, y_shift=None, z_shift=None, chain=1, auto=1, command=None, facing="up"):
+        if x_shift is None:
+            x_shift = self.build_index
+        if y_shift is None:
+            y_shift = self.y_index
+        if z_shift is None:
+            z_shift = self.wrap_index
         if command is None:
             return None
         type_def = "chain_" if chain else ""
