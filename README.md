@@ -9,7 +9,6 @@ To run this app, you need:
   + Package: opencv-python (cv2)
   
 This app creates music by generating mcfunction(s), so only **Minecraft (Java Edition) 1.13 or newer** are supported. 
-+ 
 
 ## Frondends
 + soma: Generates music that is played by the [soma](https://www.mcbbs.net/thread-709092-1-1.html) resource pack, which has more instruments and better sound quality. 
