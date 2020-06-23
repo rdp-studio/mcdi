@@ -41,7 +41,7 @@ class Soma(Frontend):
 
 
 class Vanilla(Frontend):
-    """The vanilla minecraft frontend, smaller sound range. (By ExMatics)"""
+    """The vanilla minecraft frontend, smaller sound range. (By HydrogenC)"""
 
     pitches = [0.5, 0.529732, 0.561231, 0.594604, 0.629961, 0.667420, 0.707107, 0.749154, 0.793701, 0.840896, 0.890899,
                0.943874, 1, 1.059463, 1.122462, 1.189207, 1.259921, 1.334840, 1.414214, 1.498307, 1.587401, 1.681793,
@@ -88,3 +88,20 @@ class Vanilla(Frontend):
         inst_num = floor(((note - 18) / 12) if note != 90 else 5)
         inst = self.insts[inst_num]
         return f"execute as @a at @s run stopsound @s voice minecraft:block.note_block.{inst}"
+
+class Mcrg(Frontend):
+    """The frontend to generate music for mcrg resource packs. (By HydrogenC)"""
+
+    def __init__(self, packname:"Name of the target resource pack"="mcrg",
+                 use_stop: "Use the stopsound command" = False):
+        self.packname=packname;
+        self.use_stop=use_stop;
+
+    def get_play_cmd(self, prog, note, v, pan, pitch, long, half, **kwargs):
+        abs_pan = (pan - 64) / 32
+        return f"execute as @a at @s run stopsound @s voice {self.packname}.{pitch}"
+
+    def get_stop_cmd(self, prog, note, long, half, **kwargs):
+        if not self.use_stop:
+            return None
+        return f"execute as @a at @s run stopsound {self.packname}.{pitch} voice @s"
