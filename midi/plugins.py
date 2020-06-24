@@ -1,5 +1,5 @@
-from midi_project.core import Generator
-from command_types import *
+from midi.core import Generator
+from base.command_types import *
 
 
 class Plugin(object):
@@ -24,7 +24,7 @@ class Progress(Plugin):
     def exec(self, generator: Generator):
         if not hasattr(self, "end_tick"):
             self.end_tick = max(generator.loaded_messages, key=lambda x: x["tick"])["tick"]
-        if generator.tick_count == 0:
+        if generator.tick_index == 0:
             cmd = f'bossbar add {self.pk} {{"text": "{self.text}"}}'
             if generator._set_tick_command(command=cmd):
                 generator.y_index += 1
@@ -41,12 +41,12 @@ class Progress(Plugin):
             if generator._set_tick_command(command=cmd):
                 generator.y_index += 1
             return None
-        if generator.tick_count == self.end_tick:
+        if generator.tick_index == self.end_tick:
             cmd = f"bossbar set {self.pk} visible false"
             if generator._set_tick_command(command=cmd):
                 generator.y_index += 1
             return None
-        if generator._set_tick_command(command=f"bossbar set {self.pk} value {generator.tick_count}"):
+        if generator._set_tick_command(command=f"bossbar set {self.pk} value {generator.tick_index}"):
             generator.y_index += 1
 
 
@@ -78,7 +78,7 @@ class PianoFall(Plugin):
 
     def exec(self, generator: Generator):
         on_notes = list()
-        expected_tick = generator.tick_count + self.front_tick
+        expected_tick = generator.tick_index + self.front_tick
         for message in generator.loaded_messages:
             if message["type"] != "note_on":
                 continue
@@ -93,15 +93,15 @@ class PianoFall(Plugin):
             block_name = f'{self.mapping[on_note["ch"] - 1]}_{self.block_type}'
             if self.reversed:
                 build_shift = self.build_shift - on_note["note"] + 128
-                summon_cmd = f'summon minecraft:falling_block ~{-generator.build_index + build_shift} ~{self.sum_y - generator.y_index} ~{-generator.wrap_index - 1 - self.wrap_shift} {{BlockState:{{Name: "{block_name}"}},Time:1,CustomName:\'"{generator.tick_count}"\'}}'
+                summon_cmd = f'summon minecraft:falling_block ~{-generator.build_index + build_shift} ~{self.sum_y - generator.y_index} ~{-generator.wrap_index - 1 - self.wrap_shift} {{BlockState:{{Name: "{block_name}"}},Time:1,CustomName:\'"{generator.tick_index}"\'}}'
             else:
                 wrap_sum = generator.tick_sum // generator.wrap_length + 1
                 build_shift = on_note["note"] - self.build_shift
-                summon_cmd = f'summon minecraft:falling_block ~{-generator.build_index + build_shift} ~{self.sum_y - generator.y_index} ~{wrap_sum - generator.wrap_index + 1 + self.wrap_shift}{{BlockState:{{Name:"{block_name}"}},Time:1,CustomName:\'"{generator.tick_count}"\'}}'
+                summon_cmd = f'summon minecraft:falling_block ~{-generator.build_index + build_shift} ~{self.sum_y - generator.y_index} ~{wrap_sum - generator.wrap_index + 1 + self.wrap_shift}{{BlockState:{{Name:"{block_name}"}},Time:1,CustomName:\'"{generator.tick_index}"\'}}'
             if generator._set_tick_command(command=summon_cmd):
                 generator.y_index += 1
 
-        if generator._set_tick_command(command=f"kill @e[name={generator.tick_count - self.front_tick}]"):
+        if generator._set_tick_command(command=f"kill @e[name={generator.tick_index - self.front_tick}]"):
             generator.y_index += 1
 
 
@@ -149,7 +149,7 @@ class PianoRoll(Plugin):
         generator.initial_functions.append(function)
 
         function = Function(generator.namespace, "pno_roll_effect1")
-        function.read("midi_project/functions/pno_roll_effect1.mcfunction")
+        function.read("midi/functions/pno_roll_effect1.mcfunction")
         generator.extended_functions.append(function)
 
     def exec(self, generator: Generator):

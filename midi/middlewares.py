@@ -1,4 +1,4 @@
-from midi_project.core import Generator
+from midi.core import Generator
 
 
 class Middleware(object):
