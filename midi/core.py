@@ -15,7 +15,7 @@ from base.command_types import *
 
 
 class Generator(MidiFile):
-    def __init__(self, fp, frontend, namespace="mcdi", func="music", wrap_length=128, blank_ticks=0, tick_rate=50,
+    def __init__(self, fp, frontend_list, namespace="mcdi", func="music", wrap_length=128, blank_ticks=0, tick_rate=50,
                  plugins=None, middles=None):
         if plugins is None:
             plugins = []
@@ -23,7 +23,7 @@ class Generator(MidiFile):
             middles = []
         logging.debug("Initializing generator...")
         super().__init__(fp)
-        self.frontend = frontend
+        self.frontend_list = frontend_list
         self.wrap_length = wrap_length
         self.blank_ticks = blank_ticks
         self.tick_rate = tick_rate
@@ -160,7 +160,7 @@ class Generator(MidiFile):
         self.volume_factor = volume_factor
         self.loaded_messages.clear()
 
-        for _, track in enumerate(self.tracks):
+        for i, track in enumerate(self.tracks):
             logging.debug(f"Reading events from track {_}: {track}...")
 
             time_accum = 0
@@ -214,6 +214,7 @@ class Generator(MidiFile):
                         tick_time += message.shift
 
                     self.loaded_messages.append({
+                        "track": i,
                         "type": message.type,
                         "ch": message.channel,
                         "prog": program,
@@ -288,11 +289,11 @@ class Generator(MidiFile):
                 if message_count > limitation:
                     break
                 if message["type"] == "note_on":
-                    if self._set_tick_command(command=self.get_play_cmd(message)):
+                    if self._set_tick_command(command=self.get_play_cmd(message["track"], message)):
                         self.y_index += 1
                     message_count += 1
                 elif message["type"] == "note_off":
-                    if self._set_tick_command(command=self.get_stop_cmd(message)):
+                    if self._set_tick_command(command=self.get_stop_cmd(message["track"], message)):
                         self.y_index += 1
                     message_count += 1
 
@@ -322,11 +323,11 @@ class Generator(MidiFile):
             function.write(*args, **kwargs)
         logging.info("Write process finished.")
 
-    def get_play_cmd(self, message):
-        return self.frontend.get_play_cmd(**message)
+    def get_play_cmd(self, track_id, message):
+        return self.frontend_list[track_id].get_play_cmd(**message)
 
-    def get_stop_cmd(self, message):
-        return self.frontend.get_stop_cmd(**message)
+    def get_stop_cmd(self, track_id, message):
+        return self.frontend_list[track_id].get_stop_cmd(**message)
 
     def _set_tick_command(self, command=None, *args, **kwargs):
         if command is None:

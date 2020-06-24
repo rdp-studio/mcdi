@@ -10,7 +10,7 @@ class Frontend(object):
         pass
 
     def get_stop_cmd(self, **kwargs):
-        pass
+        return None
 
 
 class Soma(Frontend):
@@ -82,6 +82,7 @@ class Mcrg(Frontend):
     def __init__(self, pack_name: "Name of the target resource pack" = "mcrg",
                  inst_name: "Name of the target instrument" = "inst",
                  use_stop: "Use the stopsound command" = True):
+        super().__init__()
         self.pack_name = pack_name
         self.inst_name = inst_name
         self.use_stop = use_stop

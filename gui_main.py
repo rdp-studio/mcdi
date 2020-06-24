@@ -392,16 +392,19 @@ class MainWindow(MainFrame):
                         wx.MessageBox(f"尚未选定MIDI路径。", "提示", wx.OK | wx.ICON_INFORMATION)
                     raise StopIteration
 
-                frontend_text = self.FrontendPicker.GetPageText(index := self.FrontendPicker.GetSelection())
-                frontend_class = re.findall(r"^(.+?)\s\(.*\)$", frontend_text)[0]
-                frontend = getattr(frontends, frontend_class)(**self.frontend_panes[index].params)
+                frontend_list=[]
+                for i in range(0, self.TrackPicker.GetPageCount()-1):
+                    tmp=TrackPanel(self.TrackPicker.GetPage(i));
+                    frontend_text = tmp.TrackChooser.GetPageText(index:=tmp.TrackChooser.GetSelection())
+                    frontend_class = re.findall(r"^(.+?)\s\(.*\)$", frontend_text)[0]
+                    frontend_list.append(getattr(frontends, frontend_class)(**tmp.frontends_panes[index].params))
 
                 self.ProgressBar.SetValue(0)
                 logging.info("正在读取MIDI文件...")
                 wrap_length = self.WrapLengthSpin.GetValue()
                 namespace = self.PackNamespaceInput.GetValue()
                 identifier = self.PackIdentifierInput.GetValue()
-                generator = Generator(midi_path, frontend, namespace, identifier, wrap_length, plugins=plugin_list,
+                generator = Generator(midi_path, frontend_list, namespace, identifier, wrap_length, plugins=plugin_list,
                                       middles=middle_list)
                 self.ProgressBar.SetValue(100)
 
