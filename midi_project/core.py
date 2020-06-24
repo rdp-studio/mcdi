@@ -5,12 +5,13 @@ Python 3.8.x
 Minecraft 1.15.x
 """
 
+from collections import deque
 from math import ceil, floor
 from time import time
-import logging
-from command_types import *
 
 import mido
+
+from command_types import *
 
 
 class Generator(mido.MidiFile):
@@ -26,11 +27,14 @@ class Generator(mido.MidiFile):
         self.wrap_length = wrap_length
         self.blank_ticks = blank_ticks
         self.tick_rate = tick_rate
+        self.namespace = namespace
         self.plugins = list(plugins)
         self.middles = list(middles)
 
-        self.loaded_messages = list()
-        self.namespace = namespace
+        self.tick_cache = list()
+        self.build_count = self.y_index = self.tick_index = self.tick_sum = 0
+
+        self.loaded_messages = deque()
         self.built_function = Function(namespace, func)
         self.initial_functions = list()
         self.extended_functions = list()
@@ -71,8 +75,8 @@ class Generator(mido.MidiFile):
             for _, track in enumerate(self.tracks):
                 time_accum = 0
                 for message in track:
-                    time = time_accum + message.time
-                    diff = abs(round(raw := (time / i)) - raw)
+                    rel_time = time_accum + message.time
+                    diff = abs(round(raw := (rel_time / i)) - raw)
                     time_diff_sum += diff
                     message_sum += 1
                     time_accum += message.time
@@ -93,7 +97,7 @@ class Generator(mido.MidiFile):
         sustain_notes = []
         logging.debug("Analysing long notes.")
         track_count = len(self.tracks)
-        count = 0
+        message_count = 0
 
         for i, track in enumerate(self.tracks):
             logging.debug(f"Reading events from track {i}: {track}...")
@@ -113,15 +117,15 @@ class Generator(mido.MidiFile):
                         if length >= threshold:
                             vars(off_note)["long"] = True
                             vars(message)["long"] = True
-            count += 1
-            progress_callback(count, track_count)
+            message_count += 1
+            progress_callback(message_count, track_count)
             logging.debug(f"Analysed long notes in track {i}.")
 
     def half_tick_analysis(self, minimum=0.3, maximum=0.7, progress_callback=lambda x, y: None):
         sustain_notes = []
         logging.debug("Analysing half-tick notes.")
         track_count = len(self.tracks)
-        count = 0
+        message_count = 0
 
         for i, track in enumerate(self.tracks):
             logging.debug(f"Reading events from track {i}: {track}...")
@@ -142,8 +146,8 @@ class Generator(mido.MidiFile):
                         vars(message)["half"] = True
                         vars(message)["shift"] = 1
                         sustain_notes.remove(off_note)
-            count += 1
-            progress_callback(count, track_count)
+            message_count += 1
+            progress_callback(message_count, track_count)
             logging.debug(f"Analysed half-tick notes in track {i}.")
 
     def load_events(self, pan_enabled=True, gvol_enabled=True, pitch_enabled=True,
@@ -164,10 +168,10 @@ class Generator(mido.MidiFile):
             pan_set = dict()
             pitch_set = dict()
 
-            count = 0
+            message_count = 0
 
             for message in track:
-                if count > limitation:
+                if message_count > limitation:
                     break
 
                 if message.is_meta:
@@ -179,8 +183,8 @@ class Generator(mido.MidiFile):
                         logging.info(f"MIDI copyright information: {message.text}")
                     continue
 
-                time = time_accum + message.time
-                tick_time = round(time / self.tick_rate)
+                rel_time = time_accum + message.time
+                tick_time = round(rel_time / self.tick_rate)
 
                 if "note" in message.type:
                     program = 1  # Default
@@ -203,16 +207,10 @@ class Generator(mido.MidiFile):
                     else:
                         pitch_value = 1
 
-                    if hasattr(message, "long"):
-                        long = True
-                    else:
-                        long = False
-
-                    if hasattr(message, "half"):
-                        half = True
+                    long = hasattr(message, "long")
+                    half = hasattr(message, "half")
+                    if half:
                         tick_time += message.shift
-                    else:
-                        half = False
 
                     self.loaded_messages.append({
                         "type": message.type,
@@ -227,12 +225,12 @@ class Generator(mido.MidiFile):
                         "long": long
                     })
 
-                    count += 1
+                    message_count += 1
                 elif "prog" in message.type:
-                    time = time_accum + message.time
+                    rel_time = time_accum + message.time
                     program_set[message.channel] = {"value": message.program, "time": tick_time}
                 elif "control" in message.type:
-                    time = time_accum + message.time
+                    rel_time = time_accum + message.time
                     if message.control == 7:
                         volume_set[message.channel] = {"value": message.value, "time": tick_time}
                     elif message.control == 121:
@@ -240,19 +238,15 @@ class Generator(mido.MidiFile):
                             del volume_set[message.channel]
                     elif message.control == 10:
                         pan_set[message.channel] = {"value": message.value, "time": tick_time}
-                    else:
-                        pass
                 elif "pitch" in message.type:
-                    time = time_accum + message.time
+                    rel_time = time_accum + message.time
                     pitch_set[message.channel] = {"value": message.pitch, "time": tick_time}
-                else:
-                    print(message)
                 time_accum += message.time
 
                 for plugin in self.middles:
                     plugin.exec(self)
 
-        self.loaded_messages.sort(key=lambda n: n["tick"])
+        self.loaded_messages = deque(sorted(self.loaded_messages, key=lambda n: n["tick"]))
         logging.info("Load process finished.")
 
     def build_events(self, progress_callback=lambda x, y: None, limitation=511):
@@ -265,46 +259,41 @@ class Generator(mido.MidiFile):
 
         self.built_function.clear()
 
-        self.build_count = 0
-        self.y_index = 0
-        self.tick_cache = list()
-        self.tick_count = 0
-        self.tick_sum = max(self.loaded_messages, key=lambda x: x["tick"])["tick"]
-
         logging.debug(f'Building {len(self.loaded_messages)} event(s) loaded.')
 
-        self.end_tick = max(self.loaded_messages, key=lambda x: x["tick"])["tick"]
-        for self.tick_count in range(-self.blank_ticks, self.end_tick + 1):
+        self.tick_sum = max(self.loaded_messages, key=lambda x: x["tick"])["tick"]
+        for self.tick_index in range(-self.blank_ticks, self.tick_sum + 1):
             self.build_index = self.build_count % self.wrap_length
             self.wrap_index = self.build_count // self.wrap_length
 
             if (self.build_count + 1) % self.wrap_length == 0:
-                self._set_command_block(chain=False, auto=False,
-                                        command=self._set_red_block(1 - self.wrap_length, -1, 1))
+                self._set_command_block(
+                    chain=0, auto=0, command=f"setblock ~{1 - self.wrap_length} ~-1 ~1 minecraft:redstone_block")
                 self.y_index += 1
             else:
-                self._set_command_block(chain=False, auto=False, command=self._set_red_block(1, -1, 0))
+                self._set_command_block(
+                    chain=0, auto=0, command="setblock ~1 ~-1 ~ minecraft:redstone_block")
                 self.y_index += 1
 
-            self._set_command_block(command=self._set_air_block(0, -2, 0))
+            self._set_command_block(command="setblock ~ ~-2 ~ minecraft:air replace")
             self.y_index += 1
 
-            while (m := self.loaded_messages) and m[0]["tick"] == self.tick_count:
-                self.tick_cache.append(self.loaded_messages.pop(0))
+            while (m := self.loaded_messages) and m[0]["tick"] == self.tick_index:
+                self.tick_cache.append(self.loaded_messages.popleft())
 
-            count = 0
+            message_count = 0
 
             for message in self.tick_cache:
-                if count > limitation:
+                if message_count > limitation:
                     break
                 if message["type"] == "note_on":
                     if self._set_tick_command(command=self.get_play_cmd(message)):
                         self.y_index += 1
-                    count += 1
+                    message_count += 1
                 elif message["type"] == "note_off":
                     if self._set_tick_command(command=self.get_stop_cmd(message)):
                         self.y_index += 1
-                    count += 1
+                    message_count += 1
 
             for plugin in self.plugins:
                 plugin.exec(self)
@@ -312,16 +301,17 @@ class Generator(mido.MidiFile):
             self.build_count += 1
             self.y_index = 0
 
-            if self.tick_count % 100 == 0:
-                logging.info(f"Built {self.tick_count} tick(s), {self.end_tick + 1} tick(s) in all.")
-                progress_callback(self.tick_count, self.end_tick + 1)
+            if self.tick_index % 100 == 0:
+                logging.info(f"Built {self.tick_index} tick(s), {self.tick_sum + 1} tick(s) in all.")
+                progress_callback(self.tick_index, self.tick_sum + 1)
             self.tick_cache.clear()
 
         logging.info("Build process finished.")
-        logging.debug(f"Estimated duration: {self.tick_count / 20} second(s)。")
+        logging.debug(f"Estimated duration: {self.tick_index / 20} second(s)。")
 
     def write_func(self, *args, **kwargs):
         self.built_function.append(f"gamerule commandBlockOutput false")
+        self.built_function.append(f"gamerule sendCommandFeedback false")
 
         logging.info(f"Writing {len(self.built_function)} command(s) built.")
         for i, function in enumerate(self.initial_functions):
@@ -336,14 +326,6 @@ class Generator(mido.MidiFile):
 
     def get_stop_cmd(self, message):
         return self.frontend.get_stop_cmd(**message)
-
-    @staticmethod
-    def _set_red_block(x_shift, y_shift, z_shift):
-        return f"setblock ~{x_shift} ~{y_shift} ~{z_shift} minecraft:redstone_block replace"
-
-    @staticmethod
-    def _set_air_block(x_shift, y_shift, z_shift):
-        return f"setblock ~{x_shift} ~{y_shift} ~{z_shift} minecraft:air replace"
 
     def _set_tick_command(self, command=None, *args, **kwargs):
         if command is None:
@@ -365,49 +347,3 @@ class Generator(mido.MidiFile):
         self.built_function.append(
             f'setblock ~{x_shift} ~{y_shift} ~{z_shift} minecraft:{type_def}command_block[facing={facing}]{{auto:{auto_def},Command:"{command}",LastOutput: false,TrackOutput: false}} replace')
         return True
-
-
-if __name__ == '__main__':
-    from midi_project.plugins import *
-    from midi_project.frontends import *
-
-    MIDI_PATH = r"D:\音乐\Only My Railgun Original.mid"  # Where you save your midi file.
-
-    GAME_DIR = r"D:\Minecraft\.minecraft\versions\fabric-loader-0.8.2+build.194-1.14.4"  # Your game directory
-    WORLD_NAME = r"_TEST"  # Your world name
-
-    TICK_RATE = 60  # The higher, the faster
-    EXPECTED_LEN = 0  # Overrides the tick rate, set to -1 to disable, set to 0 to automatic
-    TOLERANCE = 3  # Works with expected length, set to 0 for fixed
-    STEP = 0.05  # Works with expected length, DO NOT set to 0!!
-    LONG_NOTE_LEVEL = 30  # Set to 0 to disable
-
-    PAN_ENABLED = True  # Whether you want to use the pan or not
-    GLOBAL_VOLUME_ENABLED = True  # Whether you want to use the global volume or not
-    PITCH_ENABLED = True  # Whether you want to use the pitch value or not
-    PITCH_FACTOR = 1  # How much do you want the pitch value to be
-    VOLUME_FACTOR = 1  # 1 as default, the bigger, the louder
-
-    FRONT_END = Soma()
-
-    MIDDLEWARES = [
-
-    ]
-
-    PLUGINS = [
-        PianoRoll()
-    ]
-
-    logging.basicConfig(level=logging.DEBUG,
-                        format="%(asctime)s - %(filename)s[line:%(lineno)d] - %(levelname)s: %(message)s")
-    gen = Generator(MIDI_PATH, tick_rate=TICK_RATE,
-                    plugins=PLUGINS, middles=MIDDLEWARES, frontend=FRONT_END)
-    if 0 <= EXPECTED_LEN:
-        gen.tick_analysis(EXPECTED_LEN, TOLERANCE, STEP)
-    if 0 < LONG_NOTE_LEVEL:
-        gen.long_note_analysis(LONG_NOTE_LEVEL)
-    # gen.half_tick_analysis()
-    gen.load_events(pan_enabled=PAN_ENABLED, gvol_enabled=GLOBAL_VOLUME_ENABLED, pitch_enabled=PITCH_ENABLED,
-                    pitch_factor=PITCH_FACTOR, volume_factor=VOLUME_FACTOR)
-    gen.build_events()
-    gen.write_func(os.path.join(GAME_DIR, "saves", WORLD_NAME))

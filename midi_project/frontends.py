@@ -55,36 +55,22 @@ class Vanilla(Frontend):
                  f3_inst: "Instrument to play F#3-F#4 with" = "harp",
                  f4_inst: "Instrument to play F#4-F#5 with" = "harp",
                  f5_inst: "Instrument to play F#5-F#6 with" = "bell",
-                 f6_inst: "Instrument to play F#6-F#7 with" = "bell",
-                 use_stop: "Use the stopsound command" = False):
+                 f6_inst: "Instrument to play F#6-F#7 with" = "bell"):
         super().__init__()
         self.insts = f1_inst, f2_inst, f3_inst, f4_inst, f5_inst, f6_inst
-        self.use_stop = use_stop
 
         for i, inst in enumerate(self.insts):
             if not self.insts.__contains__(inst):
-                raise ValueError(f"Invalid instrument name: {inst}")
+                raise ValueError(f"Instrument name not in {self.insts_pitch.keys()}: {inst}")
             if self.insts_pitch[inst] > (i + 1) or (self.insts_pitch[inst] + 2) < (i + 1):
                 raise ValueError(f"Instrument does not cover the specified range: {inst}")
 
     def get_play_cmd(self, prog, note, v, pan, pitch, long, half, **kwargs):
         if note < 18 or note > 90:
-            logging.info(f"On note {note} at channel{prog} out of range! ")
+            logging.warning(f"On note {note} at channel{prog} out of range! ")
             return f'tellraw @a {{"text":"[ERROR] Invalid pitch from note {note} at channel{prog}","color":"red"}}'
 
         abs_pan = (pan - 64) / 32
         inst_num = floor(((note - 18) / 12) if note != 90 else 5)
         start_pitch = self.insts_pitch[(inst := self.insts[inst_num])]
         return f"execute as @a at @s run playsound minecraft:block.note_block.{inst} voice @s ^{-abs_pan} ^ ^{2 - abs(abs_pan)} {v / 255} {self.pitches[note - start_pitch * 18]}"
-
-    def get_stop_cmd(self, prog, note, long, half, **kwargs):
-        if not self.use_stop:
-            return None
-
-        if note < 18 or note > 90:
-            logging.info(f"Off note {note} at{prog} channel out of range! ")
-            return None
-
-        inst_num = floor(((note - 18) / 12) if note != 90 else 5)
-        inst = self.insts[inst_num]
-        return f"execute as @a at @s run stopsound @s voice minecraft:block.note_block.{inst}"
