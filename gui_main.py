@@ -68,7 +68,7 @@ class ConfigPage(wx.Panel):
                 return_dict[key] = float(value)
             elif re.match(r"^(\{.*\}|\[.*\]|\(.*\))$", value):
                 return_dict[key] = eval(value)
-            elif value in ("True", "False", "None"):
+            elif value in ("True", "False", "None", "..."):
                 return_dict[key] = eval(value)
             else:
                 return_dict[key] = str(value)
@@ -263,7 +263,7 @@ class MainWindow(MainFrame):
                 self.MCWorldPicker.SetItems(["*saves/ 无效*"])
 
     def frontends_init(self):
-        from midi_project import frontends
+        from midi import frontends
 
         for frontend_item in dir(frontends):
             frontend: frontends.Frontend = getattr(frontends, frontend_item)
@@ -285,7 +285,7 @@ class MainWindow(MainFrame):
             self.PackIdentifierInput.Enable()
 
     def plugins_init(self):
-        from midi_project import plugins
+        from midi import plugins
 
         for plugin_item in dir(plugins):
             plugin: plugins.Plugin = getattr(plugins, plugin_item)
@@ -297,7 +297,7 @@ class MainWindow(MainFrame):
                     f" - By {plugin.__author__}" if hasattr(plugin, "__author__") else "")
 
     def middles_init(self):
-        from midi_project import middlewares
+        from midi import middlewares
 
         for middle_item in dir(middlewares):
             middle: middlewares.Middleware = getattr(middlewares, middle_item)
@@ -310,8 +310,8 @@ class MainWindow(MainFrame):
 
     def midi_run(self, event=None):
         def main_thread(self: MainWindow, event):
-            from midi_project import frontends, plugins, middlewares
-            from midi_project.core import Generator
+            from midi import frontends, plugins, middlewares
+            from midi.core import Generator
 
             self.Run.Disable()
 

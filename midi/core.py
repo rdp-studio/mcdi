@@ -7,14 +7,14 @@ Minecraft 1.15.x
 
 from collections import deque
 from math import ceil, floor
-from time import time
+from random import sample
 
-import mido
+from mido import MidiFile
 
-from command_types import *
+from base.command_types import *
 
 
-class Generator(mido.MidiFile):
+class Generator(MidiFile):
     def __init__(self, fp, frontend, namespace="mcdi", func="music", wrap_length=128, blank_ticks=0, tick_rate=50,
                  plugins=None, middles=None):
         if plugins is None:
@@ -40,23 +40,23 @@ class Generator(mido.MidiFile):
         self.extended_functions = list()
         self.tempo = 5E5
 
-        self.id = int(time())
+        self.id = "".join(sample("ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789", 16))
 
     def tick_analysis(self, expected_len=None, tolerance=10, step=0.1, strict=True,
                       progress_callback=lambda x, y: None):
         if not expected_len:
             expected_len = self.length
 
-        max_tick = 0
         logging.debug("Analysing maximum and minimum tick rate.")
+
         track_count = len(self.tracks)
-        count = 0
+        message_count = max_tick = 0
         for _, track in enumerate(self.tracks):
             logging.debug(f"Reading events from track {_}: {track}.")
             accum = sum(map(lambda x: x.time, track))
             max_tick = max(max_tick, accum)
-            count += 1
-            progress_callback(count, track_count)
+            message_count += 1
+            progress_callback(message_count, track_count)
         max_allow = 1 / ((expected_len - tolerance) * 20 / max_tick)
         min_allow = 1 / ((expected_len + tolerance) * 20 / max_tick)
         logging.debug(f"Maximum and minimum tick rate: {max_allow}, {min_allow}.")
@@ -66,7 +66,7 @@ class Generator(mido.MidiFile):
         i = minimum = floor(min_allow) if strict else min_allow
         maximum = ceil(max_allow) if strict else max_allow
         estimated_count = (maximum - i) / step
-        count = 0
+        message_count = 0
 
         while i < maximum:
             logging.debug(f"Trying tick rate: {i} between {minimum} and {maximum}.")
@@ -86,17 +86,17 @@ class Generator(mido.MidiFile):
                 min_time_diff = time_diff_sum
                 best_tick_rate = i
             i += step
-            count += 1
-
-            progress_callback(count, estimated_count)
+            message_count += 1
+            progress_callback(message_count, estimated_count)
 
         logging.info(f"The best tick rate found: {best_tick_rate}.")
         self.tick_rate = best_tick_rate
 
     def long_note_analysis(self, threshold=40, progress_callback=lambda x, y: None):
-        sustain_notes = []
         logging.debug("Analysing long notes.")
+
         track_count = len(self.tracks)
+        sustain_notes = []
         message_count = 0
 
         for i, track in enumerate(self.tracks):
@@ -105,14 +105,14 @@ class Generator(mido.MidiFile):
             for message in track:
                 time_accum += message.time
                 if message.type == "note_on":
-                    vars(message)["abs_time"] = time_accum
+                    vars(message)["time_accum"] = time_accum
                     sustain_notes.append(message)
                 elif message.type == "note_off":
                     off_notes = filter(
                         lambda x: x.channel == message.channel and x.note == message.note, sustain_notes
                     )
                     for off_note in off_notes:
-                        length = (time_accum - off_note.abs_time) / self.tick_rate
+                        length = (time_accum - off_note.time_accum) / self.tick_rate
                         sustain_notes.remove(off_note)
                         if length >= threshold:
                             vars(off_note)["long"] = True
@@ -121,10 +121,11 @@ class Generator(mido.MidiFile):
             progress_callback(message_count, track_count)
             logging.debug(f"Analysed long notes in track {i}.")
 
-    def half_tick_analysis(self, minimum=0.3, maximum=0.7, progress_callback=lambda x, y: None):
-        sustain_notes = []
+    def half_note_analysis(self, minimum=0.3, maximum=0.7, progress_callback=lambda x, y: None):
         logging.debug("Analysing half-tick notes.")
+
         track_count = len(self.tracks)
+        sustain_notes = []
         message_count = 0
 
         for i, track in enumerate(self.tracks):
@@ -133,10 +134,10 @@ class Generator(mido.MidiFile):
             for message in track:
                 time_accum += message.time
                 if message.type == "note_on":
-                    tick_diff = 1 - ceil(t := (time_accum / self.tick_rate)) + t
+                    tick_diff = 1 - ceil(tick := (time_accum / self.tick_rate)) + tick
                     if minimum < tick_diff < maximum:
                         vars(message)["half"] = True
-                        vars(message)["shift"] = - (round(t) > t)
+                        vars(message)["shift"] = - (round(tick) > tick)
                         sustain_notes.append(message)
                 elif message.type == "note_off":
                     off_notes = filter(

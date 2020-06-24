@@ -1,5 +1,5 @@
-from midi_project.core import Generator
-from command_types import *
+from midi.core import Generator
+from base.command_types import *
 
 
 class Plugin(object):
@@ -149,7 +149,7 @@ class PianoRoll(Plugin):
         generator.initial_functions.append(function)
 
         function = Function(generator.namespace, "pno_roll_effect1")
-        function.read("midi_project/functions/pno_roll_effect1.mcfunction")
+        function.read("midi/functions/pno_roll_effect1.mcfunction")
         generator.extended_functions.append(function)
 
     def exec(self, generator: Generator):
