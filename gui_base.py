@@ -375,11 +375,9 @@ class MainFrame(wx.Frame):
 
         MIDIPageFrontendContainer = wx.BoxSizer(wx.VERTICAL)
 
-        self.FrontendPicker = wx.Choicebook(self.MIDIPageFrontend, wx.ID_ANY, wx.DefaultPosition, wx.DefaultSize,
-                                            wx.CHB_DEFAULT)
-        self.FrontendPicker.SetBackgroundColour(wx.SystemSettings.GetColour(wx.SYS_COLOUR_WINDOW))
+        self.TrackPicker = wx.Notebook(self.MIDIPageFrontend, wx.ID_ANY, wx.DefaultPosition, wx.DefaultSize, 0)
 
-        MIDIPageFrontendContainer.Add(self.FrontendPicker, 1, wx.EXPAND | wx.ALL, 5)
+        MIDIPageFrontendContainer.Add(self.TrackPicker, 1, wx.EXPAND | wx.ALL, 5)
 
         self.MIDIPageFrontend.SetSizer(MIDIPageFrontendContainer)
         self.MIDIPageFrontend.Layout()

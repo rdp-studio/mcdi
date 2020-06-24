@@ -8,7 +8,7 @@ from urllib.error import HTTPError
 from urllib.request import urlopen
 
 from gui_base import *
-
+import mido
 
 class CustomLogger(logging.Handler):
     def __init__(self, parent: MainFrame):
@@ -23,6 +23,49 @@ class CustomLogger(logging.Handler):
         except Exception:
             self.handleError(record)
 
+class TrackPanel(wx.Panel):
+    def __init__(self, parent, track_name, track_inst, display_name=None):
+        super().__init__(parent, wx.ID_ANY, wx.DefaultPosition, wx.DefaultSize, wx.TAB_TRAVERSAL);
+        self.SetSizeHints(wx.DefaultSize, wx.DefaultSize)
+        self.SetForegroundColour(wx.SystemSettings.GetColour(wx.SYS_COLOUR_INACTIVECAPTIONTEXT))
+        self.SetBackgroundColour(wx.SystemSettings.GetColour(wx.SYS_COLOUR_HIGHLIGHTTEXT))
+
+        TrackSizer = wx.BoxSizer(wx.VERTICAL)
+
+        self.TrackLabel = wx.StaticText(self, wx.ID_ANY, u"音轨名："+track_name, wx.DefaultPosition, wx.DefaultSize, 0)
+        self.TrackLabel.Wrap(-1)
+
+        TrackSizer.Add(self.TrackLabel, 0, wx.ALL, 5)
+
+        self.InstLabel = wx.StaticText(self, wx.ID_ANY, u"乐器名："+track_inst, wx.DefaultPosition, wx.DefaultSize, 0)
+        self.InstLabel.Wrap(-1)
+
+        TrackSizer.Add(self.InstLabel, 0, wx.ALL, 5)
+
+        self.TrackChooser = wx.Choicebook(self, wx.ID_ANY, wx.DefaultPosition, wx.DefaultSize, wx.CHB_DEFAULT)
+        TrackSizer.Add(self.TrackChooser, 1, wx.EXPAND | wx.ALL, 5)
+        self.frontends_panes=[]
+
+        self.SetSizer(TrackSizer)
+        self.Layout()
+        self.Centre(wx.BOTH)
+        self.frontends_init()
+        self.frontends_panes=[]
+        if display_name==None:
+            parent.AddPage(self, track_name)
+        else:
+            parent.AddPage(self, display_name)
+
+    def frontends_init(self):
+        from midi_project import frontends
+
+        for frontend_item in dir(frontends):
+            frontend: frontends.Frontend = getattr(frontends, frontend_item)
+            if type(f := frontend) is type and f is not frontends.Frontend and issubclass(f, frontends.Frontend):
+                self.frontends_panes.append(ConfigPage(self.TrackChooser, frontend))
+
+        for pane in self.frontends_panes:
+            pane.bind();
 
 class ConfigPage(wx.Panel):
     def __init__(self, parent, object_):
@@ -101,13 +144,15 @@ class MainWindow(MainFrame):
         self.frontend_panes = []
         self.plugin_panes = []
         self.middle_panes = []
-        self.frontends_init()
         self.plugins_init()
         self.middles_init()
         self.check_identifier_state()
         self.check_namespace_state()
         self._bind_events()
         self._config_loop()
+        time.sleep(0.5)
+        if os.path.exists(self.MIDIPathPicker.GetPath()):
+            self.midi_update()
         try:
             response = urlopen("http://frankyang.com.cn:2121/projects/mcdi/assets/about.html")
             self.MIDIPageAboutHTML.SetPage(response.read().decode("gbk"))
@@ -117,6 +162,7 @@ class MainWindow(MainFrame):
     def _bind_events(self):
         self.Bind(wx.EVT_BUTTON, self.midi_run, self.Run)
 
+        self.Bind(wx.EVT_FILEPICKER_CHANGED, self.midi_update, self.MIDIPathPicker)
         self.Bind(wx.EVT_DIRPICKER_CHANGED, self.dot_mc_update, self.DotMCPathPicker)
         self.Bind(wx.EVT_CHECKBOX, self.dot_mc_update, self.MCVersionShowOld)
         self.Bind(wx.EVT_CHOICE, self.world_update, self.MCVersionPicker)
@@ -231,6 +277,12 @@ class MainWindow(MainFrame):
             versions = filter(lambda x: re.match(r".*1\.1[3-6].*", x), versions)
             self.MCVersionPicker.SetItems(list(versions))
 
+    def midi_update(self, event=None):
+        midi_file=mido.MidiFile(self.MIDIPathPicker.GetPath())
+        self.TrackPicker.DeleteAllPages()
+        for i, track in enumerate(midi_file.tracks):
+          TrackPanel(self.TrackPicker, track.name, "Not implemented", f"Track {i}");
+
     def world_update(self, event=None):
         if not hasattr(self, "versions_path"):
             wx.MessageBox(f"尚未选定'versions'目录。", "提示", wx.OK | wx.ICON_INFORMATION)
@@ -261,14 +313,6 @@ class MainWindow(MainFrame):
             except FileNotFoundError:
                 wx.MessageBox(f"选定的存档路径（{self.saves_path}）不存在。", "警告", wx.OK | wx.ICON_WARNING)
                 self.MCWorldPicker.SetItems(["*saves/ 无效*"])
-
-    def frontends_init(self):
-        from midi_project import frontends
-
-        for frontend_item in dir(frontends):
-            frontend: frontends.Frontend = getattr(frontends, frontend_item)
-            if type(f := frontend) is type and f is not frontends.Frontend and issubclass(f, frontends.Frontend):
-                self.frontend_panes.append(ConfigPage(self.FrontendPicker, frontend))
 
     def check_namespace_state(self, event=None):
         if self.PackNamespaceAuto.GetValue():
