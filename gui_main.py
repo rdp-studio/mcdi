@@ -10,6 +10,7 @@ from urllib.request import urlopen
 from gui_base import *
 import mido
 
+
 class CustomLogger(logging.Handler):
     def __init__(self, parent: MainFrame):
         super().__init__()
@@ -23,6 +24,7 @@ class CustomLogger(logging.Handler):
         except Exception:
             self.handleError(record)
 
+
 class TrackPanel(wx.Panel):
     def __init__(self, parent, track_name, track_inst, display_name=None):
         super().__init__(parent, wx.ID_ANY, wx.DefaultPosition, wx.DefaultSize, wx.TAB_TRAVERSAL);
@@ -32,32 +34,34 @@ class TrackPanel(wx.Panel):
 
         TrackSizer = wx.BoxSizer(wx.VERTICAL)
 
-        self.TrackLabel = wx.StaticText(self, wx.ID_ANY, u"音轨名："+track_name, wx.DefaultPosition, wx.DefaultSize, 0)
+        self.TrackLabel = wx.StaticText(self, wx.ID_ANY, u"音轨名：" + track_name, wx.DefaultPosition, wx.DefaultSize, 0)
         self.TrackLabel.Wrap(-1)
 
         TrackSizer.Add(self.TrackLabel, 0, wx.ALL, 5)
 
-        self.InstLabel = wx.StaticText(self, wx.ID_ANY, u"乐器名："+track_inst, wx.DefaultPosition, wx.DefaultSize, 0)
+        self.InstLabel = wx.StaticText(self, wx.ID_ANY, u"乐器名：" + track_inst, wx.DefaultPosition, wx.DefaultSize, 0)
         self.InstLabel.Wrap(-1)
 
         TrackSizer.Add(self.InstLabel, 0, wx.ALL, 5)
 
         self.TrackChooser = wx.Choicebook(self, wx.ID_ANY, wx.DefaultPosition, wx.DefaultSize, wx.CHB_DEFAULT)
         TrackSizer.Add(self.TrackChooser, 1, wx.EXPAND | wx.ALL, 5)
-        self.frontends_panes=[]
+        self.frontends_panes = []
 
         self.SetSizer(TrackSizer)
         self.Layout()
         self.Centre(wx.BOTH)
+        self.frontends_panes = []
         self.frontends_init()
-        self.frontends_panes=[]
-        if display_name==None:
+
+        if display_name == None:
             parent.AddPage(self, track_name)
         else:
             parent.AddPage(self, display_name)
+        pages.append(self)
 
     def frontends_init(self):
-        from midi_project import frontends
+        from midi import frontends
 
         for frontend_item in dir(frontends):
             frontend: frontends.Frontend = getattr(frontends, frontend_item)
@@ -66,6 +70,7 @@ class TrackPanel(wx.Panel):
 
         for pane in self.frontends_panes:
             pane.bind();
+
 
 class ConfigPage(wx.Panel):
     def __init__(self, parent, object_):
@@ -278,10 +283,10 @@ class MainWindow(MainFrame):
             self.MCVersionPicker.SetItems(list(versions))
 
     def midi_update(self, event=None):
-        midi_file=mido.MidiFile(self.MIDIPathPicker.GetPath())
+        midi_file = mido.MidiFile(self.MIDIPathPicker.GetPath())
         self.TrackPicker.DeleteAllPages()
         for i, track in enumerate(midi_file.tracks):
-          TrackPanel(self.TrackPicker, track.name, "Not implemented", f"Track {i}");
+            TrackPanel(self.TrackPicker, track.name, "Not implemented", f"Track {i}");
 
     def world_update(self, event=None):
         if not hasattr(self, "versions_path"):
@@ -392,10 +397,17 @@ class MainWindow(MainFrame):
                         wx.MessageBox(f"尚未选定MIDI路径。", "提示", wx.OK | wx.ICON_INFORMATION)
                     raise StopIteration
 
-                frontend_list=[]
-                for i in range(0, self.TrackPicker.GetPageCount()-1):
-                    tmp=TrackPanel(self.TrackPicker.GetPage(i));
-                    frontend_text = tmp.TrackChooser.GetPageText(index:=tmp.TrackChooser.GetSelection())
+                frontend_list = []
+                """
+                for i in pages:
+                    frontend_text = i.TrackChooser.GetPageText(index:=i.TrackChooser.GetSelection())
+                    frontend_class = re.findall(r"^(.+?)\s\(.*\)$", frontend_text)[0]
+                    frontend_list.append(getattr(frontends, frontend_class)(**i.frontends_panes[index].params))
+                """
+
+                for i in range(0, self.TrackPicker.GetPageCount()):
+                    tmp: TrackPanel = self.TrackPicker.GetPage(i)
+                    frontend_text = tmp.TrackChooser.GetPageText(index := tmp.TrackChooser.GetSelection())
                     frontend_class = re.findall(r"^(.+?)\s\(.*\)$", frontend_text)[0]
                     frontend_list.append(getattr(frontends, frontend_class)(**tmp.frontends_panes[index].params))
 

@@ -161,7 +161,7 @@ class Generator(MidiFile):
         self.loaded_messages.clear()
 
         for i, track in enumerate(self.tracks):
-            logging.debug(f"Reading events from track {_}: {track}...")
+            logging.debug(f"Reading events from track {i}: {track}...")
 
             time_accum = 0
             program_set = dict()
