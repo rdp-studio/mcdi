@@ -283,10 +283,15 @@ class MainWindow(MainFrame):
             self.MCVersionPicker.SetItems(list(versions))
 
     def midi_update(self, event=None):
-        midi_file = mido.MidiFile(self.MIDIPathPicker.GetPath())
-        self.TrackPicker.DeleteAllPages()
-        for i, track in enumerate(midi_file.tracks):
-            TrackPanel(self.TrackPicker, track.name, "Not implemented", f"Track {i}");
+        if os.path.exists(self.MIDIPathPicker.GetPath()):
+            midi_file = mido.MidiFile(self.MIDIPathPicker.GetPath())
+            self.FrontendText.Hide()
+            self.TrackPicker.DeleteAllPages()
+            for i, track in enumerate(midi_file.tracks):
+                TrackPanel(self.TrackPicker, track.name, "Not implemented", f"Track {i}")
+        else:
+            self.TrackPicker.DeleteAllPages()
+            self.FrontendText.Show()
 
     def world_update(self, event=None):
         if not hasattr(self, "versions_path"):

@@ -375,6 +375,7 @@ class MainFrame(wx.Frame):
 
         MIDIPageFrontendContainer = wx.BoxSizer(wx.VERTICAL)
 
+        self.FrontendText = wx.StaticText(self.MIDIPageFrontend, wx.ID_ANY, "请先选择 MIDI 文件", wx.DefaultPosition, wx.DefaultSize, 0)
         self.TrackPicker = wx.Notebook(self.MIDIPageFrontend, wx.ID_ANY, wx.DefaultPosition, wx.DefaultSize, 0)
 
         MIDIPageFrontendContainer.Add(self.TrackPicker, 1, wx.EXPAND | wx.ALL, 5)

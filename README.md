@@ -6,12 +6,11 @@ To run this app, you need:
 + Python 3.8 or newer
   + Package: mido (+ rtmidi-python)
   + Package: pillow (PIL)
-  + Package: opencv-python (cv2)
   
 This app creates music by generating mcfunction(s), so only **Minecraft (Java Edition) 1.13 or newer** are supported. 
 
 ## See how cool this thing is!
-[千本樱](https://www.bilibili.com/video/BV1dC4y1W7BJ) [恋爱循环](https://www.bilibili.com/video/BV1Na4y1i7tV)
+[千本樱](https://www.bilibili.com/video/BV1dC4y1W7BJ)  [恋爱循环](https://www.bilibili.com/video/BV1Na4y1i7tV)
 
 ## We even have a GUI!
 Run gui_main.py, and then you get a GUI application which is really simple to use!
@@ -23,8 +22,8 @@ Run gui_main.py, and then you get a GUI application which is really simple to us
 
 ## Plugins
 + Progress: Shows a progress bar on the top of the screen.
-+ Piano Fall: Shows a fancy piano fall(using entity falling_sand), **just for fun.**
-+ Piano Roll: Shows a fancy piano roll(and with plenty of effects), **just for fun.**
++ Piano Fall: Shows a fancy piano fall (using entity falling_sand), **just for fun.**
++ Piano Roll: Shows a fancy piano roll (and with plenty of effects), **just for fun.**
 
 ## Middlewares
 \[Nothing here for the time being.\]
