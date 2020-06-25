@@ -74,3 +74,24 @@ class Vanilla(Frontend):
         inst_num = floor(((note - 18) / 12) if note != 90 else 5)
         start_pitch = self.insts_pitch[(inst := self.insts[inst_num])]
         return f"execute as @a at @s run playsound minecraft:block.note_block.{inst} voice @s ^{-abs_pan} ^ ^{2 - abs(abs_pan)} {v / 255} {self.pitches[note - start_pitch * 18]}"
+
+
+class Mcrg(Frontend):
+    """The frontend to generate music for mcrg resource packs. (By HydrogenC)"""
+
+    def __init__(self, pack_name: "Name of the target resource pack" = "mcrg",
+                 inst_name: "Name of the target instrument" = "inst",
+                 use_stop: "Use the stopsound command" = True):
+        super().__init__()
+        self.pack_name = pack_name
+        self.inst_name = inst_name
+        self.use_stop = use_stop
+
+    def get_play_cmd(self, prog, note, v, pan, pitch, long, half, **kwargs):
+        abs_pan = (pan - 64) / 32
+        return f"execute as @a at @s run playsound {self.pack_name}.{self.inst_name}.{note} voice @s ^{-abs_pan} ^ ^{2 - abs(abs_pan)} {v / 255}"
+
+    def get_stop_cmd(self, prog, note, long, half, **kwargs):
+        if not self.use_stop:
+            return None
+        return f"execute as @a at @s run stopsound {self.pack_name}.{self.inst_name}.{note} voice @s"
