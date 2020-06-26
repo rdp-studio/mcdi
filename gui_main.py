@@ -8,12 +8,15 @@ import time
 from urllib.error import HTTPError
 from urllib.request import urlopen
 from PyQt5.QtWidgets import QMainWindow, QWidget, QApplication, QLabel
-from PyQt5 import QtGui, Qt, QtCore;
+from PyQt5 import QtGui, Qt, QtCore
+
+win=None
+ui=None
+
 
 class CustomLogger(logging.Handler):
     def __init__(self):
         super().__init__()
-        self.parent = parent
 
     def emit(self, record):
         try:
@@ -23,24 +26,38 @@ class CustomLogger(logging.Handler):
             self.handleError(record)
 
 
+def refresh_page(curr):
+    if not curr==-1:
+        ui.ContentWidget.setCurrentIndex(curr)
+
+
 if __name__ == '__main__':
-    import MainWindow, FileAndGeneration
+    import MainWindow, FileAndGeneration, Sequence
 
     QtCore.QCoreApplication.setAttribute(QtCore.Qt.AA_EnableHighDpiScaling)
-    app=QApplication(sys.argv)
-    win=QMainWindow()
-    ui=MainWindow.Ui_MainWindow()
+    app = QApplication(sys.argv)
+
+    win = QMainWindow()
+    ui = MainWindow.Ui_MainWindow()
     ui.setupUi(win)
     ui.retranslateUi(win)
 
-    fag=QWidget(win)
-    fag_ui=FileAndGeneration.Ui_FileAndGenerationForm()
-    fag_ui.setupUi(fag)
-    fag_ui.retranslateUi(fag)
+    win.fag = QWidget(win)
+    win.fag_ui = FileAndGeneration.Ui_FileAndGenerationForm()
+    win.fag_ui.setupUi(win.fag)
+    win.fag_ui.retranslateUi(win.fag)
 
-    ui.ContentWidget.addWidget(fag)
+    win.sq = QWidget(win)
+    win.sq_ui = Sequence.Ui_SequenceForm()
+    win.sq_ui.setupUi(win.sq)
+    win.sq_ui.retranslateUi(win.sq)
+
+    ui.ContentWidget.addWidget(win.fag)
+    ui.ContentWidget.addWidget(win.sq)
     ui.PageList.addItem("文件与生成")
+    ui.PageList.addItem("时序")
     ui.PageList.setCurrentRow(0)
+    ui.PageList.currentRowChanged.connect(refresh_page)
 
     win.show()
     sys.exit(app.exec_())

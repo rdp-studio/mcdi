@@ -87,13 +87,13 @@ class Ui_MainWindow(object):
         self.ContentWidget = QtWidgets.QStackedWidget(self.centralwidget)
         self.ContentWidget.setGeometry(QtCore.QRect(370, 20, 551, 521))
         self.ContentWidget.setObjectName("ContentWidget")
-        self.Label4 = QtWidgets.QLabel(self.centralwidget)
-        self.Label4.setGeometry(QtCore.QRect(20, 570, 641, 31))
+        self.LoggingLabel = QtWidgets.QLabel(self.centralwidget)
+        self.LoggingLabel.setGeometry(QtCore.QRect(20, 570, 641, 31))
         font = QtGui.QFont()
         font.setFamily("Microsoft YaHei UI")
         font.setPointSize(13)
-        self.Label4.setFont(font)
-        self.Label4.setObjectName("Label4")
+        self.LoggingLabel.setFont(font)
+        self.LoggingLabel.setObjectName("LoggingLabel")
         MainWindow.setCentralWidget(self.centralwidget)
 
         self.retranslateUi(MainWindow)
@@ -103,4 +103,4 @@ class Ui_MainWindow(object):
         _translate = QtCore.QCoreApplication.translate
         MainWindow.setWindowTitle(_translate("MainWindow", "MCDI 1.1"))
         self.ConfirmButton.setText(_translate("MainWindow", "生成"))
-        self.Label4.setText(_translate("MainWindow", "就绪..."))
+        self.LoggingLabel.setText(_translate("MainWindow", "就绪..."))
