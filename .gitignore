@@ -9,3 +9,4 @@ dist/
 *.spec
 # GUI
 config.json
+qt_ui/
