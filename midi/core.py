@@ -32,7 +32,17 @@ class Generator(MidiFile):
         self.middles = list(middles)
 
         self.tick_cache = list()
-        self.build_count = self.y_index = self.tick_index = self.tick_sum = 0
+        self.build_count = 0
+        self.build_index = 0
+        self.gvol_enabled = True
+        self.pan_enabled = True
+        self.pitch_enabled = True
+        self.pitch_factor = 0
+        self.tick_index = 0
+        self.tick_sum = 0
+        self.volume_factor = 0
+        self.wrap_index = 0
+        self.y_index = 0
 
         self.loaded_messages = deque()
         self.built_function = Function(namespace, func)
@@ -153,6 +163,9 @@ class Generator(MidiFile):
 
     def load_events(self, pan_enabled=True, gvol_enabled=True, pitch_enabled=True,
                     pitch_factor=1, volume_factor=1.0, limitation=float("inf")):
+        for middle in self.middles:
+            middle.init(self)
+
         self.pan_enabled = pan_enabled
         self.gvol_enabled = gvol_enabled
         self.pitch_enabled = pitch_enabled
@@ -160,8 +173,8 @@ class Generator(MidiFile):
         self.volume_factor = volume_factor
         self.loaded_messages.clear()
 
-        for _, track in enumerate(self.tracks):
-            logging.debug(f"Reading events from track {_}: {track}...")
+        for i, track in enumerate(self.tracks):
+            logging.debug(f"Reading events from track {i}: {track}...")
 
             time_accum = 0
             program_set = dict()
@@ -251,13 +264,10 @@ class Generator(MidiFile):
         logging.info("Load process finished.")
 
     def build_events(self, progress_callback=lambda x, y: None, limitation=511):
-        for plugin in self.middles:
-            if hasattr(plugin, "init"):
-                plugin.init(self)
         for plugin in self.plugins:
-            if hasattr(plugin, "init"):
-                plugin.init(self)
+            plugin.init(self)
 
+        self.build_count = 0
         self.built_function.clear()
 
         logging.debug(f'Building {len(self.loaded_messages)} event(s) loaded.')
@@ -329,10 +339,7 @@ class Generator(MidiFile):
         return self.frontend.get_stop_cmd(**message)
 
     def _set_tick_command(self, command=None, *args, **kwargs):
-        if command is None:
-            return None
-        command = command.replace("\"", r"\"")
-        return self._set_command_block(command=command, *args, **kwargs)
+        return self._set_command_block(command=command.replace("\"", r"\""), *args, **kwargs)
 
     def _set_command_block(self, x_shift=None, y_shift=None, z_shift=None, chain=1, auto=1, command=None, facing="up"):
         if x_shift is None:

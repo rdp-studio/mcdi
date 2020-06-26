@@ -1,6 +1,11 @@
+# *.vpr file
+Project/
+# IDE stuffs
 __pycache__/
 .idea/
+# Pyinstaller
 build/
 dist/
 *.spec
+# GUI
 config.json
