@@ -1,4 +1,5 @@
 import json
+import logging
 import zipfile
 from collections import deque
 
@@ -49,15 +50,22 @@ class Generator(object):
                     off_in_second = on_in_second + duration
                     on_tick, off_tick = round(on_in_second * 20), round(off_in_second * 20)
                     self.loaded_messages.append({
+                        "type": "note_on",
                         "lrc": note["phoneme"],
                         "note": note["number"],
                         "v": note["velocity"],
-                        "on_tick": on_tick,
-                        "off_tick": off_tick,
+                        "tick": on_tick,
+                    })
+                    self.loaded_messages.append({
+                        "type": "note_off",
+                        "lrc": note["phoneme"],
+                        "note": note["number"],
+                        "v": note["velocity"],
+                        "tick": off_tick,
                     })
                     message_count += 1
 
-        self.loaded_messages = deque(sorted(self.loaded_messages, key=lambda n: n["on_tick"]))
+        self.loaded_messages = deque(sorted(self.loaded_messages, key=lambda n: n["tick"]))
         logging.info("Load process finished.")
 
     def build_events(self, limitation=511):
@@ -65,7 +73,7 @@ class Generator(object):
 
         logging.debug(f'Building {len(self.loaded_messages)} event(s) loaded.')
 
-        self.tick_sum = max(self.loaded_messages, key=lambda x: x["off_tick"])["off_tick"]
+        self.tick_sum = max(self.loaded_messages, key=lambda x: x["tick"])["tick"]
         for self.tick_index in range(-self.blank_ticks, self.tick_sum + 1):
             self.build_index = self.build_count % self.wrap_length
             self.wrap_index = self.build_count // self.wrap_length
@@ -82,7 +90,7 @@ class Generator(object):
             self._set_command_block(command="setblock ~ ~-2 ~ minecraft:air replace")
             self.y_index += 1
 
-            while (m := self.loaded_messages) and m[0]["on_tick"] == self.tick_index:
+            while (m := self.loaded_messages) and m[0]["tick"] == self.tick_index:
                 self.tick_cache.append(self.loaded_messages.popleft())
 
             message_count = 0
@@ -90,8 +98,12 @@ class Generator(object):
             for message in self.tick_cache:
                 if message_count > limitation:
                     break
-                if self._set_tick_command(command=self.get_play_cmd(**message)):
-                    self.y_index += 1
+                if message["type"] == "note_on":
+                    if self._set_tick_command(command=self.get_play_cmd(**message)):
+                        self.y_index += 1
+                elif message["type"] == "note_off":
+                    if self._set_tick_command(command=self.get_stop_cmd(**message)):
+                        self.y_index += 1
                 message_count += 1
 
             self.build_count += 1
@@ -127,6 +139,13 @@ class Generator(object):
             f'setblock ~{x_shift} ~{y_shift} ~{z_shift} minecraft:{type_def}command_block[facing={facing}]{{auto:{auto_def},Command:"{command}",LastOutput: false,TrackOutput: false}} replace')
         return True
 
+    def write_func(self, *args, **kwargs):
+        self.built_function.append(f"gamerule commandBlockOutput false")
+        self.built_function.append(f"gamerule sendCommandFeedback false")
+
+        logging.info(f"Writing {len(self.built_function)} command(s) built.")
+        self.built_function.write(*args, **kwargs)
+        logging.info("Write process finished.")
 
 if __name__ == '__main__':
     logging.basicConfig(level=logging.DEBUG)
@@ -134,3 +153,4 @@ if __name__ == '__main__':
     gen = Generator(r"D:\桌面\y.vpr")
     gen.load_events()
     gen.build_events()
+    gen.write_func(wp=r"D:\Minecraft\.minecraft\versions\fabric-loader-0.8.2+build.194-1.14.4\saves\_TEST")

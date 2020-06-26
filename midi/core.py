@@ -5,6 +5,7 @@ Python 3.8.x
 Minecraft 1.15.x
 """
 
+import logging
 from collections import deque
 from math import ceil, floor
 from random import sample

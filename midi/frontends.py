@@ -41,7 +41,7 @@ class Soma(Frontend):
 
 
 class Vanilla(Frontend):
-    """The vanilla minecraft frontend, smaller sound range. (By ExMatics)"""
+    """The vanilla minecraft frontend, smaller sound range. (By HydrogenC)"""
 
     pitches = [0.5, 0.529732, 0.561231, 0.594604, 0.629961, 0.667420, 0.707107, 0.749154, 0.793701, 0.840896, 0.890899,
                0.943874, 1, 1.059463, 1.122462, 1.189207, 1.259921, 1.334840, 1.414214, 1.498307, 1.587401, 1.681793,
