@@ -1,10 +1,9 @@
-import json
 import logging
 import os
 import sys
-import threading
-from PyQt5.QtWidgets import QMainWindow, QWidget, QApplication, QLabel
+
 from PyQt5 import QtGui, Qt, QtCore
+from PyQt5.QtWidgets import QMainWindow, QWidget, QApplication, QLabel
 
 win = None
 ui = None
@@ -32,15 +31,15 @@ def browse_midi(checked):
 
 def browse_dotmc(checked):
     pth = Qt.QFileDialog.getExistingDirectory(win, "请浏览 .minecraft 路径")
-    if os.path.exists(pth+'/versions/'):
+    if os.path.exists(pth + '/versions/'):
         win.fag_ui.MCPathEdit.setPlainText(pth)
         win.fag_ui.MCVerBox.clear()
-        for dir in os.listdir(pth+'/versions/'):
+        for dir in os.listdir(pth + '/versions/'):
             win.fag_ui.MCVerBox.addItem(dir)
 
 
 def refresh_long_note(state):
-    if state==QtCore.Qt.Checked:
+    if state == QtCore.Qt.Checked:
         win.eap_ui.LongNoteToleranceSpinBox.setEnabled(True)
     else:
         win.eap_ui.LongNoteToleranceSpinBox.setEnabled(False)
@@ -56,8 +55,29 @@ def refresh_sequence(curr):
         win.sq_ui.SequenceWidget.setCurrentIndex(curr)
 
 
+def add_row(tid, name, inst, combo_func, btn_func):
+    row=win.fr_ui.TrackView.model().rowCount()
+    model=win.fr_ui.TrackView.model()
+    model.insertRow(1)
+    model.setItem(row, 0, tid)
+    model.setItem(row, 1, name)
+    model.setItem(row, 2, inst)
+    combo = Qt.QComboBox(win.fr)
+
+    from midi import frontends
+    for frontend in frontends.frontend_list:
+        combo.addItem(f"{frontend.__name__} ({frontend.__annotations__})")
+    combo.currentIndexChanged.connect(combo_func)
+    win.fr_ui.TrackView.setIndexWidget(model.index(row, 3), combo)
+
+    btn=Qt.QPushButton(win.fr)
+    btn.clicked.connect(btn_func)
+    btn.row=row
+    win.fr_ui.TrackView.setIndexWidget(model.index(row, 4), btn)
+
+
 if __name__ == '__main__':
-    import MainWindow, FileAndGeneration, Sequence, EffectsAndPerformance
+    import MainWindow, FileAndGeneration, Sequence, EffectsAndPerformance, Frontend
 
     QtCore.QCoreApplication.setAttribute(QtCore.Qt.AA_EnableHighDpiScaling)
     app = QApplication(sys.argv)
@@ -93,11 +113,18 @@ if __name__ == '__main__':
     win.sq_ui.SequenceModeBox.addItem(" 固定时长")
     win.sq_ui.SequenceModeBox.currentIndexChanged.connect(refresh_sequence)
 
-    win.eap=QWidget(win)
-    win.eap_ui=EffectsAndPerformance.Ui_EffectsAndPerformanceForm()
+    win.eap = QWidget(win)
+    win.eap_ui = EffectsAndPerformance.Ui_EffectsAndPerformanceForm()
     win.eap_ui.setupUi(win.eap)
     win.eap_ui.retranslateUi(win.eap)
     win.eap_ui.LongNoteAnalysis.stateChanged.connect(refresh_long_note)
+
+    win.fr=QWidget(win)
+    win.fr_ui=Frontend.Ui_FrontendForm()
+    win.fr_ui.setupUi(win.fr)
+    win.fr_ui.retranslateUi(win.fr)
+    win.fr_ui.TrackView.setModel(QtGui.QStandardItemModel(1, 5))
+    win.fr_ui.TrackView.setHorizontalHeaderLabels(["音轨序号", "音轨名称", "乐器", "前端", "编辑参数"])
 
     ui.ContentWidget.addWidget(win.fag)
     ui.ContentWidget.addWidget(win.sq)
@@ -105,6 +132,7 @@ if __name__ == '__main__':
     ui.PageList.addItem("文件与生成")
     ui.PageList.addItem("时序")
     ui.PageList.addItem("效果与性能")
+    ui.PageList.addItem("前端")
     ui.PageList.setCurrentRow(0)
     ui.PageList.currentRowChanged.connect(refresh_page)
 

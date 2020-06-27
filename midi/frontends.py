@@ -95,3 +95,6 @@ class Mcrg(Frontend):
         if not self.use_stop:
             return None
         return f"execute as @a at @s run stopsound {self.pack_name}.{self.inst_name}.{note} voice @s"
+
+
+frontend_list = [Soma, Vanilla, Mcrg]
