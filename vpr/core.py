@@ -7,7 +7,7 @@ from base.command_types import *
 
 
 class Generator(object):
-    def __init__(self, fp, pack_name="miku_v4x_o_jp", namespace="mcdi", func="vocal", wrap_length=128, blank_ticks=0):
+    def __init__(self, fp, pack_name="miku_v4x_o_evec", namespace="mcdi", func="vocal", wrap_length=128, blank_ticks=0):
         with zipfile.ZipFile(fp, mode="r", compresslevel=None) as file:
             file.extract("Project/sequence.json")
         with open("Project/sequence.json", "r", encoding="utf8") as file:
@@ -32,7 +32,7 @@ class Generator(object):
         self.denom = 4
         self.tempo = 120
 
-    def load_events(self, limitation=float("inf")):
+    def load_events(self, aka=None, limitation=float("inf")):
         message_count = 0
 
         self.tempo = self.raw_sequence_json["masterTrack"]["tempo"]["events"][0]["value"] / 100
@@ -41,9 +41,16 @@ class Generator(object):
         for i, track in enumerate(self.raw_sequence_json["tracks"]):
             logging.debug(f"Reading events from track {i}: {track['name']}...")
             for part in track["parts"]:
+                if "notes" not in part.keys():
+                    continue  # An audio track
                 for note in part["notes"]:
                     if message_count > limitation:
                         break
+                    if note["lyric"] in ("-", "ー"):
+                        continue # Ignore this note
+                    if aka and note["lyric"] in aka.keys():
+                        note["lyric"] = aka[note["lyric"]]  # Replace the lyric
+
                     real_note_pos = note["pos"] + part["pos"]
                     on_in_second = real_note_pos / 1920 * (60 / self.tempo) * self.denom
                     duration = note["duration"] / 1920 * (60 / self.tempo) * self.denom
@@ -51,14 +58,14 @@ class Generator(object):
                     on_tick, off_tick = round(on_in_second * 20), round(off_in_second * 20)
                     self.loaded_messages.append({
                         "type": "note_on",
-                        "lrc": note["phoneme"],
+                        "lrc": note["lyric"],
                         "note": note["number"],
                         "v": note["velocity"],
                         "tick": on_tick,
                     })
                     self.loaded_messages.append({
                         "type": "note_off",
-                        "lrc": note["phoneme"],
+                        "lrc": note["lyric"],
                         "note": note["number"],
                         "v": note["velocity"],
                         "tick": off_tick,
@@ -148,9 +155,17 @@ class Generator(object):
         logging.info("Write process finished.")
 
 if __name__ == '__main__':
+    PROJECT_PATH = r"D:\桌面\千本樱.vpr"
+    PACKAGE_NAME = "miku_v4x_o_evec"
+    WORLD_PATH = r"D:\Minecraft\.minecraft\versions\fabric-loader-0.8.2+build.194-1.14.4\saves\_TEST"
+    MAPPING_PATH = r".\aka\japanese.json"
+
+    with open(MAPPING_PATH, "r", encoding="utf8") as file:
+        aka = json.load(file)
+
     logging.basicConfig(level=logging.DEBUG)
 
-    gen = Generator(r"D:\桌面\y.vpr")
-    gen.load_events()
+    gen = Generator(PROJECT_PATH, PACKAGE_NAME)
+    gen.load_events(aka)
     gen.build_events()
-    gen.write_func(wp=r"D:\Minecraft\.minecraft\versions\fabric-loader-0.8.2+build.194-1.14.4\saves\_TEST")
+    gen.write_func(wp=WORLD_PATH)
