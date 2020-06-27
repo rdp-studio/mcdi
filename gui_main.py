@@ -2,37 +2,62 @@ import json
 import logging
 import os
 import sys
-import re
 import threading
-import time
-from urllib.error import HTTPError
-from urllib.request import urlopen
 from PyQt5.QtWidgets import QMainWindow, QWidget, QApplication, QLabel
 from PyQt5 import QtGui, Qt, QtCore
 
-win=None
-ui=None
+win = None
+ui = None
 
 
 class CustomLogger(logging.Handler):
-    def __init__(self):
+    def __init__(self, label: QLabel):
         super().__init__()
+        self.label = label
 
     def emit(self, record):
         try:
             msg = self.format(record)
             print(msg)
+            self.label.setText(msg)
         except Exception:
             self.handleError(record)
 
 
+def browse_midi(checked):
+    pth = Qt.QFileDialog.getOpenFileName(win, "请浏览 MIDI 文件路径", '', "MIDI Files (*.midi *.mid)")
+    if os.path.exists(pth[0]):
+        win.fag_ui.MIDIPathEdit.setPlainText(pth[0])
+
+
+def browse_dotmc(checked):
+    pth = Qt.QFileDialog.getExistingDirectory(win, "请浏览 .minecraft 路径")
+    if os.path.exists(pth+'/versions/'):
+        win.fag_ui.MCPathEdit.setPlainText(pth)
+        win.fag_ui.MCVerBox.clear()
+        for dir in os.listdir(pth+'/versions/'):
+            win.fag_ui.MCVerBox.addItem(dir)
+
+
+def refresh_long_note(state):
+    if state==QtCore.Qt.Checked:
+        win.eap_ui.LongNoteToleranceSpinBox.setEnabled(True)
+    else:
+        win.eap_ui.LongNoteToleranceSpinBox.setEnabled(False)
+
+
 def refresh_page(curr):
-    if not curr==-1:
+    if not curr == -1:
         ui.ContentWidget.setCurrentIndex(curr)
 
 
+def refresh_sequence(curr):
+    if not curr == -1:
+        win.sq_ui.SequenceWidget.setCurrentIndex(curr)
+
+
 if __name__ == '__main__':
-    import MainWindow, FileAndGeneration, Sequence
+    import MainWindow, FileAndGeneration, Sequence, EffectsAndPerformance
 
     QtCore.QCoreApplication.setAttribute(QtCore.Qt.AA_EnableHighDpiScaling)
     app = QApplication(sys.argv)
@@ -42,20 +67,44 @@ if __name__ == '__main__':
     ui.setupUi(win)
     ui.retranslateUi(win)
 
+    logger = logging.getLogger("")
+    handler = CustomLogger(ui.LoggingLabel)
+    logger.setLevel(logging.INFO)
+    handler.setLevel(logging.INFO)
+    fmt = logging.Formatter("%(asctime)s - %(levelname)s: %(message)s")
+    handler.setFormatter(fmt)
+    logger.addHandler(handler)
+
     win.fag = QWidget(win)
     win.fag_ui = FileAndGeneration.Ui_FileAndGenerationForm()
     win.fag_ui.setupUi(win.fag)
     win.fag_ui.retranslateUi(win.fag)
+    win.fag_ui.BrowseMIDIPath.clicked.connect(browse_midi)
+    win.fag_ui.BrowseMCPath.clicked.connect(browse_dotmc)
+    win.fag_ui.MCVerBox.addItem(" 未指定 .minecraft 目录")
+    win.fag_ui.SaveBox.addItem(" 未指定 .minecraft 目录")
 
     win.sq = QWidget(win)
     win.sq_ui = Sequence.Ui_SequenceForm()
     win.sq_ui.setupUi(win.sq)
     win.sq_ui.retranslateUi(win.sq)
+    win.sq_ui.SequenceModeBox.addItem(" 弹性时长（推荐）")
+    win.sq_ui.SequenceModeBox.addItem(" 固定刻速率")
+    win.sq_ui.SequenceModeBox.addItem(" 固定时长")
+    win.sq_ui.SequenceModeBox.currentIndexChanged.connect(refresh_sequence)
+
+    win.eap=QWidget(win)
+    win.eap_ui=EffectsAndPerformance.Ui_EffectsAndPerformanceForm()
+    win.eap_ui.setupUi(win.eap)
+    win.eap_ui.retranslateUi(win.eap)
+    win.eap_ui.LongNoteAnalysis.stateChanged.connect(refresh_long_note)
 
     ui.ContentWidget.addWidget(win.fag)
     ui.ContentWidget.addWidget(win.sq)
+    ui.ContentWidget.addWidget(win.eap)
     ui.PageList.addItem("文件与生成")
     ui.PageList.addItem("时序")
+    ui.PageList.addItem("效果与性能")
     ui.PageList.setCurrentRow(0)
     ui.PageList.currentRowChanged.connect(refresh_page)
 
