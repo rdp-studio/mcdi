@@ -1,5 +1,5 @@
 # Hello There! Meet MCDI!
-A Python application/library for Minecraft to build redstone musics, pictures or videos conveniently from MIDI files. 
+A Python application/library for Minecraft to build redstone musics(vocals) conveniently from MIDI or VPR files. 
 
 ## Getting started
 To run this app, you need:
