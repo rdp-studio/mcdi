@@ -1,5 +1,5 @@
-from midi.core import Generator
 from base.command_types import *
+from midi.core import Generator
 
 
 class Plugin(object):
@@ -149,7 +149,7 @@ class PianoRoll(Plugin):
         generator.initial_functions.append(function)
 
         function = Function(generator.namespace, "pno_roll_effect1")
-        function.read("midi/functions/pno_roll_effect1.mcfunction")
+        function.from_file("midi/functions/pno_roll_effect1.mcfunction")
         generator.extended_functions.append(function)
 
     def exec(self, generator: Generator):
@@ -186,18 +186,17 @@ class PianoRoll(Plugin):
                     break
                 jump2_notes.append(message)
                 found_tick = message["tick"]
-            jump2_notes = filter(
-                lambda x: self.jump2_min < x["tick"] - on_note["tick"] < self.jump2_max, jump2_notes
-            )
+            jump2_notes = filter(lambda x: self.jump2_min < x["tick"] - on_note["tick"] < self.jump2_max, jump2_notes
+                                 )  # Get the note(s) to jump to(within the limitation)
 
             for jump2_note in jump2_notes:
-                dx = t = jump2_note["tick"] - on_note["tick"]
-                if self.reversed:
-                    dz = (jump2_note["note"] - self.wrap_shift - 128) - wrap_shift
+                dx = t = jump2_note["tick"] - on_note["tick"]  # Velocity X
+                if self.reversed:  # Negative Z
+                    dz = (jump2_note["note"] - self.wrap_shift - 128) - wrap_shift  # Velocity Z
                 else:
-                    dz = (jump2_note["note"] + self.wrap_shift) - wrap_shift
-                block_name = f'{self.mapping[on_note["ch"] - 1]}_{self.block_type}'
-                velocity = map(lambda x: str(x), self.get_jump_velocity(dx, 0, dz, t))
+                    dz = (jump2_note["note"] + self.wrap_shift) - wrap_shift  # Velocity Z
+                block_name = f'{self.mapping[on_note["ch"] - 1]}_{self.block_type}'  # The "jumping" block(the note)
+                velocity = map(lambda x: str(x), self.get_jump_velocity(dx, 0, dz, t))  # Turn everything into string
                 summon_cmd = f'summon minecraft:falling_block ~ ~{self.y_shift - generator.y_index} ~{wrap_shift} {{BlockState:{{Name:"{block_name}"}},Time:1,Motion:[{",".join(velocity)}]}}'
                 if generator._set_tick_command(command=summon_cmd):
                     generator.y_index += 1

@@ -32,7 +32,7 @@ class Generator(object):
         self.denom = 4
         self.tempo = 120
 
-    def load_events(self, aka=None, limitation=float("inf")):
+    def load_events(self, mapping=None, volume_factor=1.75, language="japanese", limitation=float("inf")):
         message_count = 0
 
         self.tempo = self.raw_sequence_json["masterTrack"]["tempo"]["events"][0]["value"] / 100
@@ -43,13 +43,20 @@ class Generator(object):
             for part in track["parts"]:
                 if "notes" not in part.keys():
                     continue  # An audio track
+                last_note = None
                 for note in part["notes"]:
                     if message_count > limitation:
                         break
-                    if note["lyric"] in ("-", "ー"):
-                        continue # Ignore this note
-                    if aka and note["lyric"] in aka.keys():
-                        note["lyric"] = aka[note["lyric"]]  # Replace the lyric
+
+                    if mapping and note["lyric"] in mapping.keys():
+                        note["lyric"] = mapping[note["lyric"]]  # Replace the lyric
+                    if note["lyric"] in ("-", "ー") and last_note:  # Continue the note
+                        if language == "japanese":  # Japanese fix
+                            if len(last_note) == 1:  # A E I O U
+                                note["lyric"] = last_note
+                            else:  # ka, ku, kya, kyu, shi, chi, ...
+                                note["lyric"] = last_note[-1]
+                        note["c"] = True  # Mark as a continue note
 
                     real_note_pos = note["pos"] + part["pos"]
                     on_in_second = real_note_pos / 1920 * (60 / self.tempo) * self.denom
@@ -60,17 +67,20 @@ class Generator(object):
                         "type": "note_on",
                         "lrc": note["lyric"],
                         "note": note["number"],
-                        "v": note["velocity"],
+                        "v": note["velocity"] * volume_factor,
                         "tick": on_tick,
+                        "c": "c" in note.keys()
                     })
                     self.loaded_messages.append({
                         "type": "note_off",
                         "lrc": note["lyric"],
                         "note": note["number"],
-                        "v": note["velocity"],
+                        "v": note["velocity"] * volume_factor,
                         "tick": off_tick,
+                        "c": "c" in note.keys()
                     })
                     message_count += 1
+                    last_note = note["lyric"]
 
         self.loaded_messages = deque(sorted(self.loaded_messages, key=lambda n: n["tick"]))
         logging.info("Load process finished.")
@@ -108,9 +118,13 @@ class Generator(object):
                 if message["type"] == "note_on":
                     if self._set_tick_command(command=self.get_play_cmd(**message)):
                         self.y_index += 1
+                    if not message["c"]:
+                        if self._set_tick_command(command=f"say {message['lrc']}"):
+                            self.y_index += 1
                 elif message["type"] == "note_off":
                     if self._set_tick_command(command=self.get_stop_cmd(**message)):
                         self.y_index += 1
+
                 message_count += 1
 
             self.build_count += 1
@@ -142,8 +156,8 @@ class Generator(object):
             return None
         type_def = "chain_" if chain else ""
         auto_def = "true" if auto else "false"
-        self.built_function.append(
-            f'setblock ~{x_shift} ~{y_shift} ~{z_shift} minecraft:{type_def}command_block[facing={facing}]{{auto:{auto_def},Command:"{command}",LastOutput: false,TrackOutput: false}} replace')
+        setblock_cmd = f'setblock ~{x_shift} ~{y_shift} ~{z_shift} minecraft:{type_def}command_block[facing={facing}]{{auto:{auto_def},Command:"{command}",LastOutput:false,TrackOutput:false}} replace'
+        self.built_function.append(setblock_cmd)
         return True
 
     def write_func(self, *args, **kwargs):
@@ -151,21 +165,5 @@ class Generator(object):
         self.built_function.append(f"gamerule sendCommandFeedback false")
 
         logging.info(f"Writing {len(self.built_function)} command(s) built.")
-        self.built_function.write(*args, **kwargs)
+        self.built_function.to_file(*args, **kwargs)
         logging.info("Write process finished.")
-
-if __name__ == '__main__':
-    PROJECT_PATH = r"D:\桌面\千本樱.vpr"
-    PACKAGE_NAME = "miku_v4x_o_evec"
-    WORLD_PATH = r"D:\Minecraft\.minecraft\versions\fabric-loader-0.8.2+build.194-1.14.4\saves\_TEST"
-    MAPPING_PATH = r".\aka\japanese.json"
-
-    with open(MAPPING_PATH, "r", encoding="utf8") as file:
-        aka = json.load(file)
-
-    logging.basicConfig(level=logging.DEBUG)
-
-    gen = Generator(PROJECT_PATH, PACKAGE_NAME)
-    gen.load_events(aka)
-    gen.build_events()
-    gen.write_func(wp=WORLD_PATH)

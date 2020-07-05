@@ -328,9 +328,9 @@ class Generator(MidiFile):
         logging.info(f"Writing {len(self.built_function)} command(s) built.")
         for i, function in enumerate(self.initial_functions):
             self.built_function.append(f"schedule function {function.id[0]}:{function.id[1]} {i + 1}s")
-        self.built_function.write(*args, **kwargs)
+        self.built_function.to_file(*args, **kwargs)
         for function in self.initial_functions + self.extended_functions:
-            function.write(*args, **kwargs)
+            function.to_file(*args, **kwargs)
         logging.info("Write process finished.")
 
     def get_play_cmd(self, message):
