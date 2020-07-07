@@ -3,7 +3,7 @@ import logging
 import zipfile
 from collections import deque
 
-from base.command_types import *
+from base.minecraft_types import *
 
 
 class Generator(object):
@@ -32,7 +32,7 @@ class Generator(object):
         self.denom = 4
         self.tempo = 120
 
-    def load_events(self, mapping=None, volume_factor=1.75, language="japanese", limitation=float("inf")):
+    def load_events(self, volume_factor=1.75, mapping=None, language="japanese", limitation=float("inf")):
         message_count = 0
 
         self.tempo = self.raw_sequence_json["masterTrack"]["tempo"]["events"][0]["value"] / 100
@@ -85,7 +85,7 @@ class Generator(object):
         self.loaded_messages = deque(sorted(self.loaded_messages, key=lambda n: n["tick"]))
         logging.info("Load process finished.")
 
-    def build_events(self, limitation=511):
+    def build_events(self, progress_callback=lambda x, y: None, limitation=511):
         self.built_function.clear()
 
         logging.debug(f'Building {len(self.loaded_messages)} event(s) loaded.')
@@ -132,6 +132,7 @@ class Generator(object):
 
             if self.tick_index % 100 == 0:
                 logging.info(f"Built {self.tick_index} tick(s), {self.tick_sum + 1} tick(s) in all.")
+                progress_callback(self.tick_index, self.tick_sum + 1)
             self.tick_cache.clear()
 
         logging.info("Build process finished.")
@@ -165,5 +166,5 @@ class Generator(object):
         self.built_function.append(f"gamerule sendCommandFeedback false")
 
         logging.info(f"Writing {len(self.built_function)} command(s) built.")
-        self.built_function.to_file(*args, **kwargs)
+        self.built_function.to_pack(*args, **kwargs)
         logging.info("Write process finished.")

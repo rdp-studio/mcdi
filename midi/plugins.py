@@ -1,4 +1,4 @@
-from base.command_types import *
+from base.minecraft_types import *
 from midi.core import Generator
 
 

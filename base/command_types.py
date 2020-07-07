@@ -1,25 +1,20 @@
-import os
+class Command(object):
+    pass
 
-class Function(list):
+
+class Function(Command):
     def __init__(self, namespace="mcdi", func="func"):
         super().__init__()
-        self.identifier = namespace, func
+        self.__command = f"function {namespace}:{func}"
 
-    def to_file(self, wp, limitation=None):
-        namespace, func = self.identifier
+    def __str__(self):
+        return self.__command
 
-        if not os.path.exists(wp):
-            raise FileNotFoundError("World path or Minecraft path does not exist!")  # Raise an error
-        os.makedirs(os.path.join(wp, f"datapacks\\MCDI\\data\\{namespace}\\functions"), exist_ok=True)
-        with open(os.path.join(wp, r"datapacks\MCDI\pack.mcmeta"), "w") as file:  # Initialize package
-            file.write('{"pack":{"pack_format":2333,"description":"Made by MCDI, a project by kworker(FrankYang)."}}')
 
-        with open(os.path.join(wp, f"datapacks\\MCDI\\data\\{namespace}\\functions\\{func}.mcfunction"), "w") as file:
-            file.writelines(self[:limitation])  # Within the limitation
+class Reload(Command):
+    def __init__(self):
+        super().__init__()
+        self.__command = "reload"
 
-    def from_file(self, file_path, limitation=None):
-        with open(file_path, "r") as file:  # Don't need to raise an error
-            self.extend(file.readlines()[:limitation])  # Within the limitation
-
-    def append(self, _T: object) -> None:
-        super().append(f"{_T}\n")
+    def __str__(self):
+        return self.__command
