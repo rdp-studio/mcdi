@@ -1,4 +1,5 @@
-import os, json
+import json
+import os
 
 
 class Function(list):
@@ -29,14 +30,14 @@ class Function(list):
         os.makedirs(pack_path, exist_ok=True)  # Create package
 
         meta_path = os.path.join(world_path, f"datapacks\\MCDI\\pack.mcmeta")
-        with open(meta_path, "w") as file:  # Initialize - create and write pack.mcmeta
+        with open(meta_path, "w", encoding="utf8") as file:  # Initialize - create and write pack.mcmeta
             file.write(json.dumps(self.__mcmeta))
 
         func_path = os.path.join(pack_path, f"{self.identifier}.mcfunction")
-        with open(func_path, "w", *args, **kwargs) as file:  # Pack - create and write function file
+        with open(func_path, "w", encoding="utf8", *args, **kwargs) as file:  # Pack - create and write function file
             file.writelines(self[:limitation])
 
-    def to_file(self, file_path, limitation=None, *args, **kwargs) -> None:
+    def to_file(self, file_path, *args, **kwargs) -> None:
         """
         Write the function to a file.
         :param file_path:   The path of your function
@@ -44,10 +45,10 @@ class Function(list):
         :param args:        Passed to the file writer
         :param kwargs:      Passed to the file writer
         """
-        with open(file_path, "w", *args, **kwargs) as file:  # Pack - create and write function file
-            file.writelines(self[:limitation])
+        with open(file_path, "w", encoding="utf8", *args, **kwargs) as file:  # Pack - create and write function file
+            file.writelines(self)
 
-    def from_file(self, file_path, limitation=None, *args, **kwargs) -> None:
+    def from_file(self, file_path, *args, **kwargs) -> None:
         """
         Read a function from a file.
         :param file_path:   The path of your function
@@ -55,8 +56,11 @@ class Function(list):
         :param args:        Passed to the file writer
         :param kwargs:      Passed to the file writer
         """
-        with open(file_path, "r", *args, **kwargs) as file:  # Unpack - read and load function file
-            self.extend(file.readlines()[:limitation])
+        with open(file_path, "r", encoding="utf8", *args, **kwargs) as file:  # Unpack - read and load function file
+            super().extend(file.readlines())
 
-    def append(self, _T: object) -> None:
-        super().append(f"{_T}\n")
+    def append(self, command) -> None:
+        super().append(f"{command}\n")
+
+    def extend(self, commands) -> None:
+        for i in commands: self.append(i)

@@ -1,7 +1,7 @@
-import json
 import logging
 import zipfile
 from collections import deque
+from random import randint
 
 from base.minecraft_types import *
 
@@ -32,30 +32,36 @@ class Generator(object):
         self.denom = 4
         self.tempo = 120
 
-    def load_events(self, volume_factor=1.75, mapping=None, language="japanese", limitation=float("inf")):
-        message_count = 0
+        self.id = randint(0, 2 ** 31 - 1)
+
+    def load_messages(self, volume_factor=1.75, mapping=None, language="japanese", limitation=float("inf")):
+        message_count = 0  # Limitation here for the whole VPR file
 
         self.tempo = self.raw_sequence_json["masterTrack"]["tempo"]["events"][0]["value"] / 100
         self.numer = self.raw_sequence_json["masterTrack"]["timeSig"]["events"][0]["numer"]
         self.denom = self.raw_sequence_json["masterTrack"]["timeSig"]["events"][0]["denom"]
+
         for i, track in enumerate(self.raw_sequence_json["tracks"]):
             logging.debug(f"Reading events from track {i}: {track['name']}...")
+
             for part in track["parts"]:
                 if "notes" not in part.keys():
                     continue  # An audio track
-                last_note = None
+
+                last_lyric = None  # For "-" note continue
+
                 for note in part["notes"]:
                     if message_count > limitation:
-                        break
+                        break  # Limitation exceeds
 
                     if mapping and note["lyric"] in mapping.keys():
                         note["lyric"] = mapping[note["lyric"]]  # Replace the lyric
-                    if note["lyric"] in ("-", "ー") and last_note:  # Continue the note
+                    if note["lyric"] in ("-", "ー") and last_lyric:  # Continue the note
                         if language == "japanese":  # Japanese fix
-                            if len(last_note) == 1:  # A E I O U
-                                note["lyric"] = last_note
+                            if len(last_lyric) == 1:  # A E I O U
+                                note["lyric"] = last_lyric
                             else:  # ka, ku, kya, kyu, shi, chi, ...
-                                note["lyric"] = last_note[-1]
+                                note["lyric"] = last_lyric[-1]
                         note["c"] = True  # Mark as a continue note
 
                     real_note_pos = note["pos"] + part["pos"]
@@ -79,11 +85,13 @@ class Generator(object):
                         "tick": off_tick,
                         "c": "c" in note.keys()
                     })
-                    message_count += 1
-                    last_note = note["lyric"]
 
-        self.loaded_messages = deque(sorted(self.loaded_messages, key=lambda n: n["tick"]))
-        logging.info("Load process finished.")
+                    message_count += 1
+                    last_lyric = note["lyric"]
+
+        self.loaded_messages = deque(sorted(self.loaded_messages, key=lambda m: m["tick"]))
+
+        logging.info(f"Load process finished. {len(self.loaded_messages)} event(s) loaded.")
 
     def build_events(self, progress_callback=lambda x, y: None, limitation=511):
         self.built_function.clear()
@@ -92,50 +100,50 @@ class Generator(object):
 
         self.tick_sum = max(self.loaded_messages, key=lambda x: x["tick"])["tick"]
         for self.tick_index in range(-self.blank_ticks, self.tick_sum + 1):
-            self.build_index = self.build_count % self.wrap_length
-            self.wrap_index = self.build_count // self.wrap_length
+            self.build_index = self.build_count % self.wrap_length  # For plugins
+            self.wrap_index = self.build_count // self.wrap_length  # For plugins
 
             if (self.build_count + 1) % self.wrap_length == 0:
-                self._set_command_block(
+                self._set_command_block(  # Row to wrap
                     chain=0, auto=0, command=f"setblock ~{1 - self.wrap_length} ~-1 ~1 minecraft:redstone_block")
                 self.y_index += 1
             else:
-                self._set_command_block(
+                self._set_command_block(  # Ordinary row
                     chain=0, auto=0, command="setblock ~1 ~-1 ~ minecraft:redstone_block")
                 self.y_index += 1
 
-            self._set_command_block(command="setblock ~ ~-2 ~ minecraft:air replace")
+            self._set_command_block(command="setblock ~ ~-2 ~ minecraft:air replace")  # Remove redstone block
             self.y_index += 1
 
-            while (m := self.loaded_messages) and m[0]["tick"] == self.tick_index:
-                self.tick_cache.append(self.loaded_messages.popleft())
+            while (m := self.loaded_messages) and m[0]["tick"] == self.tick_index:  # While still message for this tick
+                self.tick_cache.append(self.loaded_messages.popleft())  # Deque object is used for performance
 
-            message_count = 0
+            message_count = 0  # Limitation here for this tick
 
             for message in self.tick_cache:
                 if message_count > limitation:
-                    break
+                    break  # Limitation exceeds
+
                 if message["type"] == "note_on":
                     if self._set_tick_command(command=self.get_play_cmd(**message)):
                         self.y_index += 1
-                    if not message["c"]:
-                        if self._set_tick_command(command=f"say {message['lrc']}"):
-                            self.y_index += 1
+
                 elif message["type"] == "note_off":
                     if self._set_tick_command(command=self.get_stop_cmd(**message)):
                         self.y_index += 1
 
                 message_count += 1
 
+            # Get ready for next row
             self.build_count += 1
+            self.tick_cache.clear()
             self.y_index = 0
 
-            if self.tick_index % 100 == 0:
+            if self.tick_index % 100 == 0:  # Show progress
                 logging.info(f"Built {self.tick_index} tick(s), {self.tick_sum + 1} tick(s) in all.")
-                progress_callback(self.tick_index, self.tick_sum + 1)
-            self.tick_cache.clear()
+                progress_callback(self.tick_index, self.tick_sum + 1)  # For GUI
 
-        logging.info("Build process finished.")
+        logging.info(f"Build process finished. {len(self.built_function)} command(s) built.")
 
     def get_play_cmd(self, lrc, note, v, **kwargs):
         return f"execute as @a at @s run playsound {self.pack_name}.{lrc}.{note} voice @s ~ ~ ~ {v / 127}"
@@ -161,10 +169,13 @@ class Generator(object):
         self.built_function.append(setblock_cmd)
         return True
 
-    def write_func(self, *args, **kwargs):
+    def write_datapack(self, *args, **kwargs):
+        # Reduces lag
         self.built_function.append(f"gamerule commandBlockOutput false")
         self.built_function.append(f"gamerule sendCommandFeedback false")
 
         logging.info(f"Writing {len(self.built_function)} command(s) built.")
-        self.built_function.to_pack(*args, **kwargs)
-        logging.info("Write process finished.")
+
+        self.built_function.to_pack(*args, **kwargs)  # Save to datapack
+
+        logging.info("Write process finished. Now enjoy your music!")
