@@ -1,6 +1,7 @@
 import enum
 import json
 import logging
+import math
 from functools import reduce
 from typing import *
 
@@ -89,12 +90,12 @@ class BlockGenerator(object):
             self.img = self.img.resize((self.x, self.y), resample=resample)
         else:
             logging.debug("No resize needed. Continue...")
-            
+
         logging.debug(f"Loading {(pixel_count := self.x * self.y)} pixels...")
         pixels = self.img.load()
-        
+
         logging.info(f"Building {pixel_count} pixels loaded.")
-        
+
         for x in range(self.x):
             for y in range(self.y):
                 pixel = pixels[x, y]
@@ -185,7 +186,7 @@ class TextGenerator(object):
                 for x in range(1, self.img.width - 1):
                     old_pixel = pixels[x, y][:3]
                     pixel_val = round(sum(old_pixel) / 765) * 255
-                    new_pixel = [pixel_val for i in range(0, 3)]
+                    new_pixel = [pixel_val for _ in range(0, 3)]
                     pixels[x, y] = tuple(new_pixel)
 
                     diff = sum(old_pixel) - sum(new_pixel)
@@ -213,7 +214,6 @@ class TextGenerator(object):
 
         logging.info("Build procedure finished.")
 
-
     @staticmethod
     def list_to_char(pixel_list: Iterable[int]):
         pixel_list = list(pixel_list)
@@ -230,9 +230,9 @@ class TextGenerator(object):
         pixel_blocks = [
             [
                 [
-                    0 for k in range(8)
-                ] for j in range(col_length // 2)
-            ] for i in range(row_length // 4)
+                    0 for _1 in range(8)
+                ] for _2 in range(col_length // 2)
+            ] for _3 in range(row_length // 4)
         ]
 
         for row_index, row in enumerate(pixel_list):

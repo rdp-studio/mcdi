@@ -168,6 +168,12 @@ class Generator(MidiFile):
 
     def load_messages(self, limitation=inf):
         for middle in self.middles:
+            for dependency in middle.__dependencies__:
+                assert dependency in tuple(
+                    map(type, self.middles)), f"Dependency {dependency} of {middle} is required, but not found."
+            for conflict in middle.__conflicts__:
+                assert conflict not in tuple(
+                    map(type, self.middles)), f"Conflict {conflict} of {middle} is *PROHIBITED*, but found."
             middle.init(self)
 
         self.loaded_messages.clear()
@@ -250,12 +256,18 @@ class Generator(MidiFile):
                 for middle in self.middles:  # Execute middleware
                     middle.exec(self)
 
-        self.loaded_messages = deque(sorted(self.loaded_messages, key=lambda message: message["tick"]))
+        self.loaded_messages = deque(sorted(self.loaded_messages, key=lambda msg: msg["tick"]))
 
         logging.info(f"Load procedure finished. {len(self.loaded_messages)} event(s) loaded.")
 
     def build_events(self, progress_callback=lambda x, y: None, limitation=inf):
         for plugin in self.plugins:
+            for dependency in plugin.__dependencies__:
+                assert dependency in tuple(
+                    map(type, self.plugins)), f"Dependency {dependency} of {plugin} is required, but not found."
+            for conflict in plugin.__conflicts__:
+                assert conflict not in tuple(
+                    map(type, self.plugins)), f"Conflict {conflict} of {plugin} is *PROHIBITED*, but found."
             plugin.init(self)
 
         self.built_tick_count = 0  # For plugins
@@ -263,7 +275,7 @@ class Generator(MidiFile):
 
         logging.debug(f'Building {len(self.loaded_messages)} event(s) loaded.')
 
-        self.loaded_tick_count = max(self.loaded_messages, key=lambda message: message["tick"])["tick"]  # For plugins
+        self.loaded_tick_count = max(self.loaded_messages, key=lambda msg: msg["tick"])["tick"]  # For plugins
 
         for self.tick_index in range(-self.blank_ticks, self.loaded_tick_count + 1):
             self.build_axis_index = self.built_tick_count % self.wrap_length  # For plugins
@@ -380,13 +392,15 @@ class Generator(MidiFile):
 
 
 if __name__ == '__main__':
-    from gsmidi.frontends import Soma
-    from gsmidi.plugins import PianoRoll, Viewport, Titler, Lyric, Progress
+    from gsmidi.frontends import SomaExtended
+    from gsmidi.plugins import large_title, lyric_file, piano_roll, progress, viewport
 
     logging.basicConfig(level=logging.DEBUG)
 
-    generator = Generator(r"D:\音乐\Only My Railgun(3).mid", Soma(), plugins=[
-        PianoRoll(), Viewport(), Titler(), Lyric("assets/Only My Railgun.lrc"), Progress()
+    generator = Generator(r"D:\音乐\Only My Railgun(1).mid", SomaExtended(), plugins=[
+        piano_roll.PianoRoll(), viewport.Viewport(), large_title.LargeTitle(),
+        lyric_file.LyricFile("assets/Only My Railgun.lrc"), progress.Progress(),
+        piano_roll.PianoRollFall()
     ])
     generator.tick_rate_analysis()
     generator.long_note_analysis()

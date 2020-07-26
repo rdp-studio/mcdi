@@ -27,7 +27,7 @@ class Soma(Frontend):
                  use_stop: "Use the stopsound command" = True,
                  use_drum: "Use the MIDI drum channel" = True,
                  stop_drum: "Use stopsound for drum" = False):
-        
+
         super(Soma, self).__init__()
         self.use_stop = use_stop
         self.use_drum = use_drum
@@ -87,7 +87,7 @@ class Vanilla(Frontend):
                  f6_inst: "Instrument to play F#6-F#7 with" = "bell",
                  use_stop: "Use the stopsound command" = True,
                  use_drum: "Use the MIDI drum channel" = False):
-        
+
         super(Vanilla, self).__init__()
         self.insts = f1_inst, f2_inst, f3_inst, f4_inst, f5_inst, f6_inst
         self.use_stop = use_stop
@@ -133,7 +133,7 @@ class Mcrg(Frontend):
                  inst_name: "Name of the target instrument" = "inst",
                  use_stop: "Use the stopsound command" = True,
                  use_drum: "Use the MIDI drum channel" = False):
-        
+
         super(Mcrg, self).__init__()
         self.pack_name = pack_name
         self.inst_name = inst_name
