@@ -166,7 +166,7 @@ class Generator(MidiFile):
 
         logging.info("Half-tick notes analysis procedure finished.")
 
-    def load_messages(self, progress_callback=lambda x, y: None, limitation=inf):
+    def load_messages(self, limitation=inf):
         for middle in self.middles:
             middle.init(self)
 
@@ -339,8 +339,6 @@ class Generator(MidiFile):
         return self.frontend.get_stop_cmd(**message)
 
     def set_tick_command(self, command=None, *args, **kwargs):
-        for unsafe, alternative in self.STRING_UNSAFE.items():
-            command = command.replace(unsafe, alternative)
         self._set_command_block(command=command, *args, **kwargs)
 
     def _set_command_block(self, x_shift=None, y_shift=None, z_shift=None, chain=1, auto=1, command=None, facing="up"):
@@ -352,6 +350,9 @@ class Generator(MidiFile):
             z_shift = self.wrap_axis_index
         if command is None:
             return None
+
+        for unsafe, alternative in self.STRING_UNSAFE.items():
+            command = command.replace(unsafe, alternative)
 
         setblock_cmd = f'setblock ~{x_shift} ~{y_shift} ~{z_shift} minecraft:{"chain_" if chain else ""}command_block[facing={facing}]{{auto:{"true" if auto else "false"},Command:"{command}",LastOutput:false,TrackOutput:false}} replace'
         self.built_function.append(setblock_cmd)
@@ -379,16 +380,16 @@ class Generator(MidiFile):
 
 
 if __name__ == '__main__':
-    from mid.frontends import Soma
-    from mid.plugins import PianoRoll, Viewport, Titler, Lyric, Progress
+    from gsmidi.frontends import Soma
+    from gsmidi.plugins import PianoRoll, Viewport, Titler, Lyric, Progress
 
     logging.basicConfig(level=logging.DEBUG)
 
-    generator = Generator(r"D:\音乐\Only My Railgun.mid", Soma(), plugins=[
+    generator = Generator(r"D:\音乐\Only My Railgun(3).mid", Soma(), plugins=[
         PianoRoll(), Viewport(), Titler(), Lyric("assets/Only My Railgun.lrc"), Progress()
     ])
     generator.tick_rate_analysis()
     generator.long_note_analysis()
     generator.load_messages()
     generator.build_events()
-    generator.write_datapack(r"D:\Minecraft\.minecraft\versions\fabric-loader-0.8.8+build.202-1.14.4\saves\MCDI")
+    generator.write_datapack(r"D:\Minecraft\.minecraft\versions\1.14.4-forge-28.1.56\saves\MCDI")

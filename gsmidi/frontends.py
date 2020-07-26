@@ -24,23 +24,48 @@ class Soma(Frontend):
     )
 
     def __init__(self,
-                 use_stop: "Use the stopsound command" = True):
-        super().__init__()
+                 use_stop: "Use the stopsound command" = True,
+                 use_drum: "Use the MIDI drum channel" = True,
+                 stop_drum: "Use stopsound for drum" = False):
+        
+        super(Soma, self).__init__()
         self.use_stop = use_stop
+        self.use_drum = use_drum
+        self.stop_drum = stop_drum
 
-    def get_play_cmd(self, program, note, v, phase, pitch, long, half, **kwargs):
-        abs_phase = (phase - 64) / 32  # Convent [0 <= int <= 127] to [-2 <= float <= 2].
+    def get_play_cmd(self, ch, program, note, v, phase, pitch, long, half, **kwargs):
+        if not self.use_drum and ch == 9:
+            return None
+
+        abs_phase = (phase - 64) / 32  # Convert [0 <= int <= 127] to [-2 <= float <= 2].
+        return f"execute as @a at @s run playsound {str(program) + 'c' * (program in self.LONG_SAFE and long)}.{note} voice @s ^{-abs_phase} ^ ^{2 - abs(abs_phase)} {v / 255} {pitch}"
+
+    def get_stop_cmd(self, ch, program, note, long, half, **kwargs):
+        if not self.use_stop or (not self.use_drum and ch == 9) or (not self.stop_drum and ch == 9):
+            return None
+
+        return f"execute as @a at @s run stopsound @s voice {str(program) + 'c' * (program in self.LONG_SAFE and long)}.{note}"
+
+
+class SomaExtended(Soma):
+    """The extended fundamental frontend for project MCDI."""
+
+    def get_play_cmd(self, ch, program, note, v, phase, pitch, long, half, **kwargs):
+        if not self.use_drum and ch == 9:
+            return None
+
+        abs_phase = (phase - 64) / 32  # Convert [0 <= int <= 127] to [-2 <= float <= 2].
         return f"execute as @a at @s run playsound {str(program) + 'c' * (program in self.LONG_SAFE and long)}.{str(note) + 'd' * bool(half)} voice @s ^{-abs_phase} ^ ^{2 - abs(abs_phase)} {v / 255} {pitch}"
 
-    def get_stop_cmd(self, program, note, long, half, **kwargs):
-        if not self.use_stop:
+    def get_stop_cmd(self, ch, program, note, long, half, **kwargs):
+        if not self.use_stop or (not self.use_drum and ch == 9) or (not self.stop_drum and ch == 9):
             return None
 
         return f"execute as @a at @s run stopsound @s voice {str(program) + 'c' * (program in self.LONG_SAFE and long)}.{str(note) + 'd' * bool(half)}"
 
 
 class Vanilla(Frontend):
-    """The vanilla minecraft frontend, smaller sound range. (By HydrogenC)"""
+    """The vanilla frontend for project MCDI. Smaller note range. (By HydrogenC)"""
 
     pitches = (  # These are the pitches in two octaves
         0.5, 0.529732, 0.561231, 0.594604, 0.629961, 0.667420, 0.707107, 0.749154, 0.793701, 0.840896, 0.890899,
@@ -49,19 +74,8 @@ class Vanilla(Frontend):
     )
 
     insts_pitch = {
-        "bass": 1,
-        "bell": 5,
-        "flute": 4,
-        "chime": 5,
-        "guitar": 2,
-        "xylophone": 5,
-        "iron_xylophone": 3,
-        "cow_bell": 4,
-        "didgeridoo": 1,
-        "bit": 3,
-        "banjo": 3,
-        "pling": 3,
-        "harp": 3
+        "bass": 1, "bell": 5, "flute": 4, "chime": 5, "guitar": 2, "xylophone": 5, "iron_xylophone": 3, "cow_bell": 4,
+        "didgeridoo": 1, "bit": 3, "banjo": 3, "pling": 3, "harp": 3
     }
 
     def __init__(self,
@@ -71,10 +85,13 @@ class Vanilla(Frontend):
                  f4_inst: "Instrument to play F#4-F#5 with" = "harp",
                  f5_inst: "Instrument to play F#5-F#6 with" = "bell",
                  f6_inst: "Instrument to play F#6-F#7 with" = "bell",
-                 use_stop: "Use the stopsound command" = True):
-        super().__init__()
+                 use_stop: "Use the stopsound command" = True,
+                 use_drum: "Use the MIDI drum channel" = False):
+        
+        super(Vanilla, self).__init__()
         self.insts = f1_inst, f2_inst, f3_inst, f4_inst, f5_inst, f6_inst
         self.use_stop = use_stop
+        self.use_drum = use_drum
 
         for i, inst in enumerate(self.insts):
             if inst not in self.insts:
@@ -83,17 +100,20 @@ class Vanilla(Frontend):
                 raise ValueError(f"Instrument does not cover the specified range: {inst}")
 
     def get_play_cmd(self, ch, note, v, phase, **kwargs):
+        if not self.use_drum and ch == 9:
+            return None
+
         if note < 18 or note > 90:
             logging.warning(f"On note {note} at channel{ch} out of range! ")
             return None
 
-        abs_phase = (phase - 64) / 32  # Convent [0 <= int <= 127] to [-2 <= float <= 2].
+        abs_phase = (phase - 64) / 32  # Convert [0 <= int <= 127] to [-2 <= float <= 2].
         inst_index = floor(((note - 18) / 12) if note != 90 else 5)  # Get the instrument to use(in range)
         base_pitch = self.insts_pitch[(inst := self.insts[inst_index])]  # Get the pitch for the instrument
         return f"execute as @a at @s run playsound minecraft:block.note_block.{inst} voice @s ^{-abs_phase} ^ ^{2 - abs(abs_phase)} {v / 255} {self.pitches[note - base_pitch * 18]}"
 
     def get_stop_cmd(self, ch, note, **kwargs):
-        if not self.use_stop:
+        if not self.use_stop or (not self.use_drum and ch == 9):
             return None
 
         if note < 18 or note > 90:
@@ -106,23 +126,29 @@ class Vanilla(Frontend):
 
 
 class Mcrg(Frontend):
-    """The MCRG resourcepack frontend, like auto-tune remix. (By HydrogenC)"""
+    """The auto-tune remix frontend for project MCDI. (By HydrogenC)"""
 
     def __init__(self,
                  pack_name: "Name of the target resourcepack" = "mcrg",
                  inst_name: "Name of the target instrument" = "inst",
-                 use_stop: "Use the stopsound command" = True):
-        super().__init__()
+                 use_stop: "Use the stopsound command" = True,
+                 use_drum: "Use the MIDI drum channel" = False):
+        
+        super(Mcrg, self).__init__()
         self.pack_name = pack_name
         self.inst_name = inst_name
         self.use_stop = use_stop
+        self.use_drum = use_drum
 
-    def get_play_cmd(self, program, note, v, phase, pitch, **kwargs):
-        abs_phase = (phase - 64) / 32  # Convent [0 <= int <= 127] to [-2 <= float <= 2].
+    def get_play_cmd(self, ch, program, note, v, phase, pitch, **kwargs):
+        if not self.use_drum and ch == 9:
+            return None
+
+        abs_phase = (phase - 64) / 32  # Convert [0 <= int <= 127] to [-2 <= float <= 2].
         return f"execute as @a at @s run playsound {self.pack_name}.{self.inst_name}.{note} voice @s ^{-abs_phase} ^ ^{2 - abs(abs_phase)} {v / 255} {pitch}"
 
-    def get_stop_cmd(self, program, note, **kwargs):
-        if not self.use_stop:
+    def get_stop_cmd(self, ch, program, note, **kwargs):
+        if not self.use_stop or (not self.use_drum and ch == 9):
             return None
 
         return f"execute as @a at @s run stopsound {self.pack_name}.{self.inst_name}.{note} voice @s"
