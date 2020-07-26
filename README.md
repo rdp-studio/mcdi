@@ -1,5 +1,5 @@
 # Hello There! Meet MCDI!
-A Python application/library for Minecraft to build redstone musics, pictures or videos conveniently from MIDI files. 
+A Python application/library for Minecraft to build redstone musics(vocals) conveniently from MIDI or VPR files. 
 
 ## Getting started
 To run this app, you need:
@@ -12,8 +12,8 @@ This app creates music by generating mcfunction(s), so only **Minecraft (Java Ed
 ## See how cool this thing is!
 [千本樱](https://www.bilibili.com/video/BV1dC4y1W7BJ)  [恋爱循环](https://www.bilibili.com/video/BV1Na4y1i7tV)
 
-## We even have a GUI!
-Run gui_main.py, and then you get a GUI application which is really simple to use!
+## ~~We even have a GUI!~~ No GUI now :(
+~~Run gui_main.py, and then you get a GUI application which is really simple to use!~~
 
 ## Frondends
 + Soma: Generates music that is played by the [soma](https://www.mcbbs.net/thread-709092-1-1.html) resource pack, which has more instruments and better sound quality. 
