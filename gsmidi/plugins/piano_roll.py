@@ -10,9 +10,8 @@ class PianoRoll(Plugin):
     __doc__ = """Shows a fancy piano roll"""
 
     DEFAULT_MAPPING = [
-        "white", "orange", "magenta", "light_blue", "yellow",
-        "lime", "pink", "gray", "light_gray", "cyan",
-        "purple", "blue", "brown", "green", "red", "black",
+        "red", "orange", "yellow", "lime", "green", "cyan", "blue", "purple", "magenta", "pink",
+        "red", "orange", "yellow", "lime", "green", "cyan", "blue", "purple", "magenta", "pink"
     ]
 
     def __init__(self,
@@ -28,7 +27,7 @@ class PianoRoll(Plugin):
         self.mapping = mapping if mapping is not None else self.DEFAULT_MAPPING
         self.block_type = block_type if block_type in (
             'stained_glass', 'concrete', 'wool', 'terracotta'
-        ) else "wool"
+        ) else "concrete"
         self.layered = layered
 
     def init(self, generator: Generator):
@@ -59,27 +58,35 @@ class PianoRoll(Plugin):
         function.append(f"forceload remove all")
         generator.initial_functions.append(function)
 
-        function = Function(generator.namespace, "pno_roll_effect")
-        function.from_file("functions/pno_roll_effect.mcfunction")
+        function = Function(generator.namespace, "pno_roll_effect1")
+        function.from_file("functions/piano_roll_block_effect.mcfunction")
+        generator.extended_functions.append(function)
+
+        function = Function(generator.namespace, "pno_roll_effect2")
+        function.from_file("functions/piano_roll_blast_effect.mcfunction")
         generator.extended_functions.append(function)
 
     def exec(self, generator: Generator):
         generator.set_tick_command(
-            command=f"fill ~ ~{self.axis_y_shift - generator.y_index} ~1 ~ ~{self.axis_y_shift - generator.y_index} ~128 minecraft:air")
+            command=f"fill ~ ~{self.axis_y_shift - generator.y_index} ~1 ~ ~{self.axis_y_shift - generator.y_index + 15} ~128 minecraft:air")
 
         toplevel_note = {}  # Reduces lag, improves performance
 
         for on_note in generator.current_on_notes()[::-1]:
-            if on_note["note"] in toplevel_note.keys():  # Toplevel notes only
-                continue
+            if on_note["note"] in toplevel_note.keys() and not self.layered:
+                continue  # When not layered, toplevel notes only
 
             z_shift = \
                 on_note["note"] - self.wrap_shift - 128 if self.reverse_wrap else on_note["note"] + self.wrap_shift
 
             y_layer = self.layered * on_note["ch"]
 
-            generator.set_tick_command(
-                command=f"execute as @p positioned ~ ~{self.axis_y_shift - generator.y_index + y_layer} ~{z_shift} run function {generator.namespace}:pno_roll_effect")  # Execute the effect
+            if on_note["ch"] == 9:  # Special effect for drum channel~ QwQ
+                generator.set_tick_command(  # Firework time!
+                    command=f"execute as @p positioned ~ ~{self.axis_y_shift - generator.y_index + y_layer} ~{z_shift} run function {generator.namespace}:pno_roll_effect2")  # Execute the effect
+            else:  # Ordinary effect for the other channels~
+                generator.set_tick_command(  # Floating blocks!
+                    command=f"execute as @p positioned ~ ~{self.axis_y_shift - generator.y_index + y_layer} ~{z_shift} run function {generator.namespace}:pno_roll_effect1")  # Execute the effect
 
             block_name = f'{self.mapping[on_note["ch"] - 1]}_{self.block_type}'  # Get the name according to the mapping
 

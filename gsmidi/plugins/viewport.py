@@ -6,13 +6,16 @@ class Viewport(Plugin):
     __author__ = "kworker"
     __doc__ = """Fixed or flexible viewport, useful for video making"""
 
+    PRESET1 = [-16, 32, 64, 0, 16, 64]
+    PRESET2 = [24, 32, 1, 48, 8, 96]
+
     def __init__(self,
-                 x: "The initial relative x-axis of the viewport." = -16,
-                 y: "The initial relative y-axis of the viewport." = 32,
-                 z: "The initial relative z-axis of the viewport." = 64,
-                 fx: "The initial relative facing in x-axis of the viewport." = 0,
-                 fy: "The initial relative facing in y-axis of the viewport." = 16,
-                 fz: "The initial relative facing in z-axis of the viewport." = 64,
+                 x: "The initial relative x-axis of the viewport.",
+                 y: "The initial relative y-axis of the viewport.",
+                 z: "The initial relative z-axis of the viewport.",
+                 fx: "The initial relative facing in x-axis of the viewport.",
+                 fy: "The initial relative facing in y-axis of the viewport.",
+                 fz: "The initial relative facing in z-axis of the viewport.",
                  fixed: "Fix the player to the position during the music." = True):
         self.position = x, y, z
         self.facing = fx, fy, fz

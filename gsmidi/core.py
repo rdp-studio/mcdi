@@ -61,7 +61,7 @@ class Generator(MidiFile):
 
         self.id = randint(0, 2 ** 31 - 1)
 
-    def tick_rate_analysis(self, duration=None, tolerance=3, step=0.1, strict=True):
+    def tick_rate_analysis(self, duration=None, tolerance=5, step=0.05, strict=True):
         if not duration:  # Calculate the length itself
             duration = self.length
 
@@ -106,7 +106,7 @@ class Generator(MidiFile):
         logging.info(f"The best tick rate found: {best_tick_rate}. Tick rate analysis procedure finished.")
         self.tick_rate = best_tick_rate
 
-    def long_note_analysis(self, threshold=40, ign_channels=(), progress_callback=lambda x, y: None):
+    def long_note_analysis(self, threshold=40, ignore=(), progress_callback=lambda x, y: None):
         logging.debug("Analysing long notes.")
 
         track_count, sustain_notes = len(self.tracks), []  # For progress calculation
@@ -117,15 +117,16 @@ class Generator(MidiFile):
 
             for message in track:  # Iterate over messages
                 timestamp += message.time
-                _ = timestamp / self.tick_rate  # Tick index in float
+                tick = timestamp / self.tick_rate  # Tick index in float
 
-                if message.type == "note_on" and message.channel not in (9, *ign_channels):  # Long condition
+                if message.type == "note_on" and message.channel not in (9, *ignore):  # Long condition
                     vars(message)["timestamp"], vars(message)["long"] = timestamp, False
                     sustain_notes.append(message)  # For future length calculation
 
                 elif message.type == "note_off":
                     for off_note in filter(  # If going to cancel any on-note:
-                            lambda x: x.channel == message.channel and x.note == message.note, sustain_notes):
+                            lambda x: x.channel == message.channel and x.note == message.note, sustain_notes
+                    ):
                         long_assign = (timestamp - off_note.timestamp) / self.tick_rate >= threshold
                         vars(off_note)["long"] = vars(message)["long"] = long_assign  # Assign as long note
 
@@ -155,7 +156,8 @@ class Generator(MidiFile):
 
                 elif message.type == "note_off":
                     for off_note in filter(  # If going to cancel any on-note:
-                            lambda x: x.channel == message.channel and x.note == message.note, sustain_notes):
+                            lambda x: x.channel == message.channel and x.note == message.note, sustain_notes
+                    ):
                         half_assign = True, bool(1 - ceil(tick := (timestamp / self.tick_rate)) + tick)
                         vars(message)["half"], vars(message)["shift"] = half_assign  # Assign as half note
 
@@ -228,8 +230,8 @@ class Generator(MidiFile):
 
                     self.loaded_messages.append({
                         "type": message.type, "ch": message.channel, "note": message.note, "tick": tick_time,
-                        "v": volume_value, "program": program, "phase": phase_value, "pitch": pitch_value, "half": half,
-                        "long": long,  # Convert message to dict object, for **kwargs.
+                        "v": volume_value, "program": program, "phase": phase_value, "pitch": pitch_value,
+                        "half": half, "long": long, "track": i,  # Convert message to dict object, for **kwargs.
                     })
 
                     message_count += 1
@@ -393,14 +395,24 @@ class Generator(MidiFile):
 
 if __name__ == '__main__':
     from gsmidi.frontends import SomaExtended
-    from gsmidi.plugins import large_title, lyric_file, piano_roll, progress, viewport
+    from gsmidi.plugins import large_title, piano_roll, progress, viewport
 
     logging.basicConfig(level=logging.DEBUG)
 
-    generator = Generator(r"D:\音乐\Only My Railgun(1).mid", SomaExtended(), plugins=[
-        piano_roll.PianoRoll(), viewport.Viewport(), large_title.LargeTitle(),
-        lyric_file.LyricFile("assets/Only My Railgun.lrc"), progress.Progress(),
-        piano_roll.PianoRollFall()
+    generator = Generator(r"D:\音乐\【完美佳作03】打上花火 - DAKAO × 米津玄师.mid", SomaExtended(), plugins=[
+        piano_roll.PianoRoll(),
+        progress.Progress(
+            text="(。・∀・)ノ 进度条"
+        ),
+        viewport.Viewport(
+            *viewport.Viewport.PRESET2
+        ),
+        large_title.LargeTitle({
+            "text": "打上花火",
+            "color": "red"
+        }, {
+            "text": "By kworker"
+        }),
     ])
     generator.tick_rate_analysis()
     generator.long_note_analysis()
