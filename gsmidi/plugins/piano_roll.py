@@ -68,7 +68,7 @@ class PianoRoll(Plugin):
 
     def exec(self, generator: Generator):
         generator.set_tick_command(
-            command=f"fill ~ ~{self.axis_y_shift - generator.y_index} ~1 ~ ~{self.axis_y_shift - generator.y_index + 15} ~128 minecraft:air")
+            command=f"fill ~ ~{self.axis_y_shift - generator.axis_y_index} ~1 ~ ~{self.axis_y_shift - generator.axis_y_index + 15} ~128 minecraft:air")
 
         toplevel_note = {}  # Reduces lag, improves performance
 
@@ -83,14 +83,14 @@ class PianoRoll(Plugin):
 
             if on_note["ch"] == 9:  # Special effect for drum channel~ QwQ
                 generator.set_tick_command(  # Firework time!
-                    command=f"execute as @p positioned ~ ~{self.axis_y_shift - generator.y_index + y_layer} ~{z_shift} run function {generator.namespace}:pno_roll_effect2")  # Execute the effect
+                    command=f"execute as @p positioned ~ ~{self.axis_y_shift - generator.axis_y_index + y_layer} ~{z_shift} run function {generator.namespace}:pno_roll_effect2")  # Execute the effect
             else:  # Ordinary effect for the other channels~
                 generator.set_tick_command(  # Floating blocks!
-                    command=f"execute as @p positioned ~ ~{self.axis_y_shift - generator.y_index + y_layer} ~{z_shift} run function {generator.namespace}:pno_roll_effect1")  # Execute the effect
+                    command=f"execute as @p positioned ~ ~{self.axis_y_shift - generator.axis_y_index + y_layer} ~{z_shift} run function {generator.namespace}:pno_roll_effect1")  # Execute the effect
 
             block_name = f'{self.mapping[on_note["ch"] - 1]}_{self.block_type}'  # Get the name according to the mapping
 
             generator.set_tick_command(
-                command=f'summon minecraft:falling_block ~ ~{self.axis_y_shift - generator.y_index + y_layer} ~{z_shift} {{BlockState:{{Name:"{block_name}"}},Time:1}}')  # Summon falling sand
+                command=f'summon minecraft:falling_block ~ ~{self.axis_y_shift - generator.axis_y_index + y_layer} ~{z_shift} {{BlockState:{{Name:"{block_name}"}},Time:1}}')  # Summon falling sand
 
             toplevel_note[on_note["note"]] = True

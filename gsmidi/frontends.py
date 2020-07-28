@@ -1,6 +1,8 @@
 import logging
 from math import floor
 
+from base.command_types import *
+
 
 class Frontend(object):
     def __init__(self):
@@ -38,30 +40,27 @@ class Soma(Frontend):
             return None
 
         abs_phase = (phase - 64) / 32  # Convert [0 <= int <= 127] to [-2 <= float <= 2].
-        return f"execute as @a at @s run playsound {str(program) + 'c' * (program in self.LONG_SAFE and long)}.{note} voice @s ^{-abs_phase} ^ ^{2 - abs(abs_phase)} {v / 255} {pitch}"
+
+        return Execute(
+            PlaySound(
+                f"{str(program) + 'c' * (program in self.LONG_SAFE and long)}.{str(note) + 'd' * bool(half)}",
+                channel="voice", for_="@s",
+                position=LocalPosition(-abs_phase, 0, 2 - abs(abs_phase)), velocity=v / 255, pitch=pitch,
+            ),
+            as_="@a", at="@s"
+        )
 
     def get_stop_cmd(self, ch, program, note, long, half, **kwargs):
         if not self.use_stop or (not self.use_drum and ch == 9) or (not self.stop_drum and ch == 9):
             return None
 
-        return f"execute as @a at @s run stopsound @s voice {str(program) + 'c' * (program in self.LONG_SAFE and long)}.{note}"
-
-
-class SomaExtended(Soma):
-    """The extended fundamental frontend for project MCDI."""
-
-    def get_play_cmd(self, ch, program, note, v, phase, pitch, long, half, **kwargs):
-        if not self.use_drum and ch == 9:
-            return None
-
-        abs_phase = (phase - 64) / 32  # Convert [0 <= int <= 127] to [-2 <= float <= 2].
-        return f"execute as @a at @s run playsound {str(program) + 'c' * (program in self.LONG_SAFE and long)}.{str(note) + 'd' * bool(half)} voice @s ^{-abs_phase} ^ ^{2 - abs(abs_phase)} {v / 255} {pitch}"
-
-    def get_stop_cmd(self, ch, program, note, long, half, **kwargs):
-        if not self.use_stop or (not self.use_drum and ch == 9) or (not self.stop_drum and ch == 9):
-            return None
-
-        return f"execute as @a at @s run stopsound @s voice {str(program) + 'c' * (program in self.LONG_SAFE and long)}.{str(note) + 'd' * bool(half)}"
+        return Execute(
+            StopSound(
+                f"{str(program) + 'c' * (program in self.LONG_SAFE and long)}.{str(note) + 'd' * bool(half)}",
+                channel="voice", for_="@s",
+            ),
+            as_="@a", at="@s"
+        )
 
 
 class Vanilla(Frontend):

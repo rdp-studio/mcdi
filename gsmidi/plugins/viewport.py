@@ -25,8 +25,11 @@ class Viewport(Plugin):
         if self.fixed or generator.is_first_tick:  # Fixed viewport
             x, y, z = self.position
             fx, fy, fz = self.facing
-            y -= generator.y_index
-            fy -= generator.y_index
+            y -= generator.axis_y_index
+            fy -= generator.axis_y_index
             generator.set_tick_command(command=f"tp @a ~{x} ~{y} ~{z} facing ~{fx} ~{fy} ~{fz}")
-        else:  # Just move forward
+
+        elif generator.warp_state:  # Just move forward
+            generator.set_tick_command(command=f"execute as @a at @s run tp @s ~{1 - generator.wrap_length} ~ ~")
+        else:
             generator.set_tick_command(command=f"execute as @a at @s run tp @s ~1 ~ ~")
