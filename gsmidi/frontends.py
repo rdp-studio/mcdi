@@ -15,6 +15,50 @@ class Frontend(object):
         pass
 
 
+class WorkerXG(Frontend):
+    """The *RECOMMENDED* frontend for project MCDI."""
+
+    def __init__(self,
+                 use_drum: "Use the MIDI drum channel" = True,
+                 stop_drum: "Use stopsound for drum" = False):
+
+        super(WorkerXG, self).__init__()
+        self.use_drum = use_drum
+        self.stop_drum = stop_drum
+
+    def get_play_cmd(self, ch, program, note, v, phase, pitch, long, half, **kwargs):
+        if not self.use_drum and ch == 9:
+            return None
+
+        abs_phase = (phase - 64) / 32  # Convert [0 <= int <= 127] to [-2 <= float <= 2].
+
+        inst = program - 1 if program > 0 else "drum"
+
+        return Execute(
+            PlaySound(
+                f"xg.{inst}.{note}",
+                channel="voice", for_="@s",
+                position=LocalPosition(-abs_phase, 0, 2 - abs(abs_phase)),
+                velocity=v / 255, pitch=pitch,
+            ),
+            as_="@a", at="@s"
+        )
+
+    def get_stop_cmd(self, ch, program, note, long, half, **kwargs):
+        if not self.stop_drum and ch == 9:
+            return None
+
+        inst = program - 1 if program > 0 else "drum"
+
+        return Execute(
+            StopSound(
+                f"xg.{inst}.{note}",
+                channel="voice", for_="@s",
+            ),
+            as_="@a", at="@s"
+        )
+
+
 class Soma(Frontend):
     """The fundamental frontend for project MCDI."""
 
@@ -45,7 +89,8 @@ class Soma(Frontend):
             PlaySound(
                 f"{str(program) + 'c' * (program in self.LONG_SAFE and long)}.{str(note) + 'd' * bool(half)}",
                 channel="voice", for_="@s",
-                position=LocalPosition(-abs_phase, 0, 2 - abs(abs_phase)), velocity=v / 255, pitch=pitch,
+                position=LocalPosition(-abs_phase, 0, 2 - abs(abs_phase)),
+                velocity=v / 255, pitch=pitch,
             ),
             as_="@a", at="@s"
         )
@@ -109,7 +154,16 @@ class Vanilla(Frontend):
         abs_phase = (phase - 64) / 32  # Convert [0 <= int <= 127] to [-2 <= float <= 2].
         inst_index = floor(((note - 18) / 12) if note != 90 else 5)  # Get the instrument to use(in range)
         base_pitch = self.insts_pitch[(inst := self.insts[inst_index])]  # Get the pitch for the instrument
-        return f"execute as @a at @s run playsound minecraft:block.note_block.{inst} voice @s ^{-abs_phase} ^ ^{2 - abs(abs_phase)} {v / 255} {self.pitches[note - base_pitch * 18]}"
+
+        return Execute(
+            PlaySound(
+                f"minecraft:block.note_block.{inst}",
+                channel="voice", for_="@s",
+                position=LocalPosition(-abs_phase, 0, 2 - abs(abs_phase)),
+                velocity=v / 255, pitch=self.pitches[note - base_pitch * 18],
+            ),
+            as_="@a", at="@s"
+        )
 
     def get_stop_cmd(self, ch, note, **kwargs):
         if not self.use_stop or (not self.use_drum and ch == 9):
@@ -121,7 +175,14 @@ class Vanilla(Frontend):
 
         inst_index = floor(((note - 18) / 12) if note != 90 else 5)  # Get the instrument to use(in range)
         base_pitch = self.insts_pitch[(inst := self.insts[inst_index])]  # Get the pitch for the instrument
-        return f"execute as @a at @s run stopsound minecraft:block.note_block.{self.insts[inst_index]} voice @s"
+
+        return Execute(
+            StopSound(
+                f"minecraft:block.note_block.{inst}",
+                channel="voice", for_="@s",
+            ),
+            as_="@a", at="@s"
+        )
 
 
 class Mcrg(Frontend):
@@ -144,10 +205,25 @@ class Mcrg(Frontend):
             return None
 
         abs_phase = (phase - 64) / 32  # Convert [0 <= int <= 127] to [-2 <= float <= 2].
-        return f"execute as @a at @s run playsound {self.pack_name}.{self.inst_name}.{note} voice @s ^{-abs_phase} ^ ^{2 - abs(abs_phase)} {v / 255} {pitch}"
+
+        return Execute(
+            PlaySound(
+                f"{self.pack_name}.{self.inst_name}.{note}",
+                channel="voice", for_="@s",
+                position=LocalPosition(-abs_phase, 0, 2 - abs(abs_phase)),
+                velocity=v / 255, pitch=pitch,
+            ),
+            as_="@a", at="@s"
+        )
 
     def get_stop_cmd(self, ch, program, note, **kwargs):
         if not self.use_stop or (not self.use_drum and ch == 9):
             return None
 
-        return f"execute as @a at @s run stopsound {self.pack_name}.{self.inst_name}.{note} voice @s"
+        return Execute(
+            PlaySound(
+                f"{self.pack_name}.{self.inst_name}.{note}",
+                channel="voice", for_="@s",
+            ),
+            as_="@a", at="@s"
+        )

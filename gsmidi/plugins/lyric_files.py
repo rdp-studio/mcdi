@@ -4,7 +4,7 @@ from gsmidi.core import Generator
 from gsmidi.plugins import Plugin
 
 
-class LyricFile(Plugin):
+class TitleLyric(Plugin):
     __author__ = "kworker"
     __doc__ = """Lyric throughout the music, useful for video making"""
 
@@ -35,11 +35,11 @@ class LyricFile(Plugin):
     def exec(self, generator: Generator):
         if generator.tick_index in self.lyric_ticks.keys():  # Add a line of lyric, shows in actionbar
             if self.style == "title":
-                generator.set_tick_command(command=f'title @a title "{self.lyric_ticks[generator.tick_index]}"')
+                generator.add_tick_command(command=f'title @a title "{self.lyric_ticks[generator.tick_index]}"')
 
             elif self.style == "subtitle":
-                generator.set_tick_command(command=f'title @a title ""')  # Placeholder to make the subtitle visible
-                generator.set_tick_command(command=f'title @a subtitle "{self.lyric_ticks[generator.tick_index]}"')
+                generator.add_tick_command(command=f'title @a title ""')  # Placeholder to make the subtitle visible
+                generator.add_tick_command(command=f'title @a subtitle "{self.lyric_ticks[generator.tick_index]}"')
 
             elif self.style == "actionbar":
-                generator.set_tick_command(command=f'title @a actionbar "{self.lyric_ticks[generator.tick_index]}"')
+                generator.add_tick_command(command=f'title @a actionbar "{self.lyric_ticks[generator.tick_index]}"')

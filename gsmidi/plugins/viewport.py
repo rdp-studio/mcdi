@@ -27,9 +27,9 @@ class Viewport(Plugin):
             fx, fy, fz = self.facing
             y -= generator.axis_y_index
             fy -= generator.axis_y_index
-            generator.set_tick_command(command=f"tp @a ~{x} ~{y} ~{z} facing ~{fx} ~{fy} ~{fz}")
+            generator.add_tick_command(command=f"tp @a ~{x} ~{y} ~{z} facing ~{fx} ~{fy} ~{fz}")
 
         elif generator.warp_state:  # Just move forward
-            generator.set_tick_command(command=f"execute as @a at @s run tp @s ~{1 - generator.wrap_length} ~ ~")
+            generator.add_tick_command(command=f"execute as @a at @s run tp @s ~{1 - generator.wrap_length} ~ ~")
         else:
-            generator.set_tick_command(command=f"execute as @a at @s run tp @s ~1 ~ ~")
+            generator.add_tick_command(command=f"execute as @a at @s run tp @s ~1 ~ ~")

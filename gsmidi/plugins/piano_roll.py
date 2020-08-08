@@ -10,8 +10,8 @@ class PianoRoll(Plugin):
     __doc__ = """Shows a fancy piano roll"""
 
     DEFAULT_MAPPING = [
-        "red", "orange", "yellow", "lime", "green", "cyan", "blue", "purple", "magenta", "pink",
-        "red", "orange", "yellow", "lime", "green", "cyan", "blue", "purple", "magenta", "pink"
+        "black", "blue", "brown", "cyan", "gray", "green", "light_blue", "light_gray",
+        "lime", "magenta", "orange", "pink", "purple", "red", "white", "yellow"
     ]
 
     def __init__(self,
@@ -27,7 +27,7 @@ class PianoRoll(Plugin):
         self.mapping = mapping if mapping is not None else self.DEFAULT_MAPPING
         self.block_type = block_type if block_type in (
             'stained_glass', 'concrete', 'wool', 'terracotta'
-        ) else "concrete"
+        ) else "wool"
         self.layered = layered
 
     def init(self, generator: Generator):
@@ -67,8 +67,9 @@ class PianoRoll(Plugin):
         generator.extended_functions.append(function)
 
     def exec(self, generator: Generator):
-        generator.set_tick_command(
-            command=f"fill ~ ~{self.axis_y_shift - generator.axis_y_index} ~1 ~ ~{self.axis_y_shift - generator.axis_y_index + 15} ~128 minecraft:air")
+        generator.add_tick_command(
+            command=f"fill ~ ~{self.axis_y_shift - generator.axis_y_index} ~1 ~ ~{self.axis_y_shift - generator.axis_y_index + 15} ~128 minecraft:air"
+        )
 
         toplevel_note = {}  # Reduces lag, improves performance
 
@@ -81,16 +82,14 @@ class PianoRoll(Plugin):
 
             y_layer = self.layered * on_note["ch"]
 
-            if on_note["ch"] == 9:  # Special effect for drum channel~ QwQ
-                generator.set_tick_command(  # Firework time!
-                    command=f"execute as @p positioned ~ ~{self.axis_y_shift - generator.axis_y_index + y_layer} ~{z_shift} run function {generator.namespace}:pno_roll_effect2")  # Execute the effect
-            else:  # Ordinary effect for the other channels~
-                generator.set_tick_command(  # Floating blocks!
-                    command=f"execute as @p positioned ~ ~{self.axis_y_shift - generator.axis_y_index + y_layer} ~{z_shift} run function {generator.namespace}:pno_roll_effect1")  # Execute the effect
+            generator.add_tick_command(  # Floating blocks effect!
+                command=f"execute as @p positioned ~ ~{self.axis_y_shift - generator.axis_y_index + y_layer} ~{z_shift} run function {generator.namespace}:pno_roll_effect1")  # Execute the effect
+
+            continue
 
             block_name = f'{self.mapping[on_note["ch"] - 1]}_{self.block_type}'  # Get the name according to the mapping
 
-            generator.set_tick_command(
+            generator.add_tick_command(
                 command=f'summon minecraft:falling_block ~ ~{self.axis_y_shift - generator.axis_y_index + y_layer} ~{z_shift} {{BlockState:{{Name:"{block_name}"}},Time:1}}')  # Summon falling sand
 
             toplevel_note[on_note["note"]] = True

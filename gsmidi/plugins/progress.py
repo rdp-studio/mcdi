@@ -16,13 +16,13 @@ class Progress(Plugin):
 
     def exec(self, generator: Generator):
         if generator.is_first_tick:
-            generator.set_tick_command(f'bossbar add {self.pk} {{"text": "{self.text}"}}')
-            generator.set_tick_command(command=f"bossbar set {self.pk} color {self.color}")
-            generator.set_tick_command(command=f"bossbar set {self.pk} max {generator.loaded_tick_count}")
-            generator.set_tick_command(command=f"bossbar set {self.pk} players @a")
-            generator.set_tick_command(command=f"bossbar set {self.pk} visible true")
+            generator.add_tick_command(f'bossbar add {self.pk} {{"text": "{self.text}"}}')
+            generator.add_tick_command(command=f"bossbar set {self.pk} color {self.color}")
+            generator.add_tick_command(command=f"bossbar set {self.pk} max {generator.loaded_tick_count}")
+            generator.add_tick_command(command=f"bossbar set {self.pk} players @a")
+            generator.add_tick_command(command=f"bossbar set {self.pk} visible true")
             return None
         if generator.is_last_tick:
-            generator.set_tick_command(command=f"bossbar set {self.pk} visible false")
+            generator.add_tick_command(command=f"bossbar set {self.pk} visible false")
             return None
-        generator.set_tick_command(command=f"bossbar set {self.pk} value {generator.tick_index}")
+        generator.add_tick_command(command=f"bossbar set {self.pk} value {generator.tick_index}")
