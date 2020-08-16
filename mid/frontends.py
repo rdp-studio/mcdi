@@ -19,24 +19,24 @@ class WorkerXG(Frontend):
     """The *RECOMMENDED* frontend for project MCDI."""
 
     def __init__(self,
+                 use_stop: "Use the stopsound command" = True,
                  use_drum: "Use the MIDI drum channel" = True,
                  stop_drum: "Use stopsound for drum" = False):
 
         super(WorkerXG, self).__init__()
+        self.use_stop = use_stop
         self.use_drum = use_drum
         self.stop_drum = stop_drum
 
-    def get_play_cmd(self, ch, program, note, v, phase, pitch, long, half, **kwargs):
+    def get_play_cmd(self, ch, program, note, v, phase, pitch, **kwargs):
         if not self.use_drum and ch == 9:
             return None
 
         abs_phase = (phase - 64) / 32  # Convert [0 <= int <= 127] to [-2 <= float <= 2].
 
-        inst = program - 1 if program > 0 else "drum"
-
         return Execute(
             PlaySound(
-                f"xg.{inst}.{note}",
+                f"xg.{program - 1 if program > 0 else 'drum'}.{note}",
                 channel="voice", for_="@s",
                 position=LocalPosition(-abs_phase, 0, 2 - abs(abs_phase)),
                 velocity=v / 255, pitch=pitch,
@@ -44,15 +44,13 @@ class WorkerXG(Frontend):
             as_="@a", at="@s"
         )
 
-    def get_stop_cmd(self, ch, program, note, long, half, **kwargs):
-        if not self.stop_drum and ch == 9:
+    def get_stop_cmd(self, ch, program, note, **kwargs):
+        if not self.use_stop or (not self.use_drum and ch == 9) or (not self.stop_drum and ch == 9):
             return None
-
-        inst = program - 1 if program > 0 else "drum"
 
         return Execute(
             StopSound(
-                f"xg.{inst}.{note}",
+                f"xg.{program - 1 if program > 0 else 'drum'}.{note}",
                 channel="voice", for_="@s",
             ),
             as_="@a", at="@s"

@@ -1,5 +1,5 @@
-from gsmidi.core import Generator
-from gsmidi.plugins import Plugin
+from mid.core import BaseGenerator
+from mid.plugins import Plugin
 
 
 class Viewport(Plugin):
@@ -21,7 +21,7 @@ class Viewport(Plugin):
         self.facing = fx, fy, fz
         self.fixed = fixed
 
-    def exec(self, generator: Generator):
+    def exec(self, generator: BaseGenerator):
         if self.fixed or generator.is_first_tick:  # Fixed viewport
             x, y, z = self.position
             fx, fy, fz = self.facing

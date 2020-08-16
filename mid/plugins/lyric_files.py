@@ -1,7 +1,7 @@
 import re
 
-from gsmidi.core import Generator
-from gsmidi.plugins import Plugin
+from mid.core import BaseGenerator
+from mid.plugins import Plugin
 
 
 class TitleLyric(Plugin):
@@ -32,7 +32,7 @@ class TitleLyric(Plugin):
 
             self.lyric_ticks[round((int(m) * 60 + int(s) + int(ms) / 100) * 20) + offset] = lyric
 
-    def exec(self, generator: Generator):
+    def exec(self, generator: BaseGenerator):
         if generator.tick_index in self.lyric_ticks.keys():  # Add a line of lyric, shows in actionbar
             if self.style == "title":
                 generator.add_tick_command(command=f'title @a title "{self.lyric_ticks[generator.tick_index]}"')

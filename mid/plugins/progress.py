@@ -1,5 +1,5 @@
-from gsmidi.core import Generator
-from gsmidi.plugins import Plugin
+from mid.core import BaseGenerator
+from mid.plugins import Plugin
 
 
 class Progress(Plugin):
@@ -14,7 +14,7 @@ class Progress(Plugin):
         self.text = text
         self.color = color
 
-    def exec(self, generator: Generator):
+    def exec(self, generator: BaseGenerator):
         if generator.is_first_tick:
             generator.add_tick_command(f'bossbar add {self.pk} {{"text": "{self.text}"}}')
             generator.add_tick_command(command=f"bossbar set {self.pk} color {self.color}")

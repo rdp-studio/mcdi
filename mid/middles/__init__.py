@@ -1,4 +1,4 @@
-from gsmidi.core import Generator
+from mid.core import Generator
 
 
 class Middleware(object):

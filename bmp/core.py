@@ -72,7 +72,7 @@ class Model(enum.Enum):
 
 class BlockGenerator(object):
     def __init__(self, fp, mappings, width=256, height=144, directions=Directions.XY, absolute=None, model=Model.RGB,
-                 namespace="mcdi", func="bitmap"):
+                 namespace="mcdi", func="bmp"):
         logging.debug("Initializing generator...")
         logging.debug(f"Loading picture: {fp}.")
         self.img = Image.open(fp=fp)
@@ -159,7 +159,7 @@ class BlockGenerator(object):
 
 
 class TextGenerator(object):
-    def __init__(self, fp, width=256, height=144, namespace="mcdi", func="bitmap"):
+    def __init__(self, fp, width=256, height=144, namespace="mcdi", func="bmp"):
         logging.debug("Initializing generator...")
         logging.debug(f"Loading picture: {fp}.")
         self.img = Image.open(fp=fp)

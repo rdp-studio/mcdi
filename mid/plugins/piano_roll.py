@@ -1,8 +1,8 @@
 from math import inf
 
 from base.minecraft_types import *
-from gsmidi.core import Generator
-from gsmidi.plugins import Plugin
+from mid.core import BaseGenerator
+from mid.plugins import Plugin
 
 
 class PianoRoll(Plugin):
@@ -30,7 +30,7 @@ class PianoRoll(Plugin):
         ) else "wool"
         self.layered = layered
 
-    def init(self, generator: Generator):
+    def init(self, generator: BaseGenerator):
         generator.wrap_length = inf  # Force no wrap
 
         function = Function(generator.namespace, "piano_roll")
@@ -58,15 +58,12 @@ class PianoRoll(Plugin):
         function.append(f"forceload remove all")
         generator.initial_functions.append(function)
 
-        function = Function(generator.namespace, "pno_roll_effect1")
-        function.from_file("functions/piano_roll_block_effect.mcfunction")
-        generator.extended_functions.append(function)
+        for i in range(16):
+            function = Function(generator.namespace, f"pno_roll_effect{i}")
+            function.from_file(f"functions/piano_roll_blast_effect{i}.mcfunction")
+            generator.extended_functions.append(function)
 
-        function = Function(generator.namespace, "pno_roll_effect2")
-        function.from_file("functions/piano_roll_blast_effect.mcfunction")
-        generator.extended_functions.append(function)
-
-    def exec(self, generator: Generator):
+    def exec(self, generator: BaseGenerator):
         generator.add_tick_command(
             command=f"fill ~ ~{self.axis_y_shift - generator.axis_y_index} ~1 ~ ~{self.axis_y_shift - generator.axis_y_index + 15} ~128 minecraft:air"
         )
@@ -84,8 +81,6 @@ class PianoRoll(Plugin):
 
             generator.add_tick_command(  # Floating blocks effect!
                 command=f"execute as @p positioned ~ ~{self.axis_y_shift - generator.axis_y_index + y_layer} ~{z_shift} run function {generator.namespace}:pno_roll_effect1")  # Execute the effect
-
-            continue
 
             block_name = f'{self.mapping[on_note["ch"] - 1]}_{self.block_type}'  # Get the name according to the mapping
 
