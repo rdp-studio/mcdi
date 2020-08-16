@@ -8,6 +8,8 @@ from base.minecraft_types import *
 
 class Generator(object):
     def __init__(self, fp, pack_name="miku_v4x_o_evec", namespace="mcdi", func="vocal", wrap_length=128, blank_ticks=0):
+        logging.debug("Initializing. Reading VPR data.")
+
         with zipfile.ZipFile(fp, mode="r", compresslevel=None) as file:
             file.extract("Project/sequence.json")
         with open("Project/sequence.json", "r", encoding="utf8") as file:

@@ -14,11 +14,14 @@ class Server(object):
         if not os.path.isfile(mc_server_path):
             raise ValueError("Minecraft server must be a file!")
 
+        logging.debug(f"Initializing. Launching original server('{mc_server_path}') with pipe.")
+
         working_dir = os.path.split(mc_server_path)[0]
 
         if os.getcwd() != working_dir: os.chdir(working_dir)
-        self.pipe = os.popen(f"java -jar -Xms{minmem}m -Xmx{maxmem}m {mc_server_path}")
+        self.pipe = os.popen(f'java -jar -Xms{minmem}m -Xmx{maxmem}m "{mc_server_path}"')
 
+        logging.debug(f"Connecting to MIDI output device('{midi_device}'). That may take a little time.")
         self.port = mido.open_output(midi_device)
 
     def handler(self, data):
@@ -26,6 +29,8 @@ class Server(object):
             self.port.send(pickle.loads(b64decode(matched[0])))
 
     def mainloop(self):
+        logging.info(f"Minecraft server MIDI agent('{__file__}') started.")
+
         while data := self.pipe.readline():
             data = data.strip("\r\n\t\x20")
 
@@ -36,6 +41,7 @@ class Server(object):
             thread.start()
 
     def __del__(self):
+        logging.info("Minecraft MIDI server agent stopped. Stopping original server(closing the pipe).")
         self.pipe.close()
 
 if __name__ == '__main__':

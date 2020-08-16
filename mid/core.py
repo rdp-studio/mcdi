@@ -40,7 +40,7 @@ class BaseGenerator(MidiFile):
     }
 
     def __init__(self, fp, namespace="mcdi", identifier="music"):
-        logging.debug("Initializing generator...")
+        logging.debug("Initializing. Reading MIDI data.")
 
         super(BaseGenerator, self).__init__(fp)
 
@@ -71,6 +71,7 @@ class BaseGenerator(MidiFile):
         self._use_function_array = False  # * Experimental *
         self._current_tick_pkg = rand_function(self.namespace)
 
+        logging.debug("Preloading")
         self.merged_tracks = merge_tracks(
             self.tracks
         )  # Preload tracks for speed
