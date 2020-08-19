@@ -4,7 +4,7 @@ from mid.core import BaseGenerator
 from mid.plugins import Plugin
 
 
-class TitleLyric(Plugin):
+class Lyric(Plugin):
     __author__ = "kworker"
     __doc__ = """Lyric throughout the music, useful for video making"""
 

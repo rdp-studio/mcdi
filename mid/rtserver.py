@@ -25,7 +25,7 @@ class Server(object):
         self.port = mido.open_output(midi_device)
 
     def handler(self, data):
-        if matched := re.findall(r"\[\d{2}:\d{2}:\d{2}\sINFO\]:\s\[@\]\spythonAccess=(.*)", data):
+        if matched := re.findall(r"\[\d{2}:\d{2}:\d{2}\sINFO\]:\s\[@\]\s!(.*)", data):
             self.port.send(pickle.loads(b64decode(matched[0])))
 
     def mainloop(self):
@@ -40,12 +40,16 @@ class Server(object):
             thread.setDaemon(daemonic=True)
             thread.start()
 
-    def __del__(self):
+    def __enter__(self):
+        return self
+
+    def __exit__(self, exc_type, exc_val, exc_tb):
         logging.info("Minecraft MIDI server agent stopped. Stopping original server(closing the pipe).")
         self.pipe.close()
+
 
 if __name__ == '__main__':
     logging.basicConfig(level=logging.DEBUG)
 
-    server = Server(r"D:\Minecraft\Server\paper-243.jar", "VirtualMIDISynth #1 0")
-    server.mainloop()
+    with Server(r"D:\Minecraft\Server\paper-243.jar", "VirtualMIDISynth #1 0") as server:
+        server.mainloop()

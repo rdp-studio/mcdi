@@ -9,26 +9,29 @@ class PianoRoll(Plugin):
     __author__ = "kworker"
     __doc__ = """Shows a fancy piano roll"""
 
-    DEFAULT_MAPPING = [
-        "black", "blue", "brown", "cyan", "gray", "green", "light_blue", "light_gray",
-        "lime", "magenta", "orange", "pink", "purple", "red", "white", "yellow"
-    ]
-
     def __init__(self,
                  wrap_shift: "Moves the piano roll further away in wrap axis." = 1,
                  axis_y_shift: "Moves the piano roll further away in y axis." = 0,
                  reverse_wrap: "Move the piano roll to the last build row." = False,
                  mapping: "Maps the channels to the colors of the falling blocks." = None,
                  block_type: "'stained_glass', 'concrete', 'wool' or 'terracotta'" = None,
-                 layered: "Show the piano roll in layers for different channels." = True):
+                 layered: "Show the piano roll in layers for different channels." = True,
+                 effect_limit: "Show effects only when note number < this value." = 128):
         self.wrap_shift = wrap_shift
         self.axis_y_shift = axis_y_shift
         self.reverse_wrap = reverse_wrap
-        self.mapping = mapping if mapping is not None else self.DEFAULT_MAPPING
+
+        self.mapping = mapping if mapping is not None else (
+            "black", "blue", "brown", "cyan", "gray", "green", "light_blue", "light_gray",
+            "lime", "magenta", "orange", "pink", "purple", "red", "white", "yellow"
+        )
+
         self.block_type = block_type if block_type in (
             'stained_glass', 'concrete', 'wool', 'terracotta'
         ) else "wool"
+
         self.layered = layered
+        self.effect_limit = effect_limit
 
     def init(self, generator: BaseGenerator):
         generator.wrap_length = inf  # Force no wrap
@@ -65,14 +68,17 @@ class PianoRoll(Plugin):
 
     def exec(self, generator: BaseGenerator):
         generator.add_tick_command(
-            command=f"fill ~ ~{self.axis_y_shift - generator.axis_y_index} ~1 ~ ~{self.axis_y_shift - generator.axis_y_index + 15} ~128 minecraft:air"
+            command=f"fill ~ ~{self.axis_y_shift - generator.y_axis_index} ~1 ~ ~{self.axis_y_shift - generator.y_axis_index + 15} ~128 minecraft:air"
         )
 
         toplevel_note = {}  # Reduces lag, improves performance
 
-        for on_note in generator.current_on_notes()[::-1]:
-            if on_note["note"] in toplevel_note.keys() and not self.layered:
+        for on_note in (on_notes := generator.current_on_notes()[::-1]):
+            if on_note["note"] in toplevel_note.keys():
                 continue  # When not layered, toplevel notes only
+
+            if len(on_notes) > self.effect_limit:
+                continue  # Too much notes, no effect.
 
             z_shift = \
                 on_note["note"] - self.wrap_shift - 128 if self.reverse_wrap else on_note["note"] + self.wrap_shift
@@ -80,11 +86,12 @@ class PianoRoll(Plugin):
             y_layer = self.layered * on_note["ch"]
 
             generator.add_tick_command(  # Floating blocks effect!
-                command=f"execute as @p positioned ~ ~{self.axis_y_shift - generator.axis_y_index + y_layer} ~{z_shift} run function {generator.namespace}:pno_roll_effect1")  # Execute the effect
+                command=f"execute as @p positioned ~ ~{self.axis_y_shift - generator.y_axis_index + y_layer} ~{z_shift} run function {generator.namespace}:pno_roll_effect{on_note['ch']}")  # Execute the effect
 
             block_name = f'{self.mapping[on_note["ch"] - 1]}_{self.block_type}'  # Get the name according to the mapping
 
             generator.add_tick_command(
-                command=f'summon minecraft:falling_block ~ ~{self.axis_y_shift - generator.axis_y_index + y_layer} ~{z_shift} {{BlockState:{{Name:"{block_name}"}},Time:1}}')  # Summon falling sand
+                command=f'summon minecraft:falling_block ~ ~{self.axis_y_shift - generator.y_axis_index + y_layer} ~{z_shift} {{BlockState:{{Name:"{block_name}"}},Time:1}}')  # Summon falling sand
 
-            toplevel_note[on_note["note"]] = True
+            if not self.layered:
+                toplevel_note[on_note["note"]] = True

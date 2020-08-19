@@ -3,7 +3,7 @@ from mid.core import BaseGenerator
 from mid.plugins import Plugin
 
 
-class MusicTitle(Plugin):
+class MainTitle(Plugin):
     __author__ = "kworker"
     __doc__ = """Title at the beginning and the end, useful for video making"""
 

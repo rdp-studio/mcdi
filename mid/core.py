@@ -7,12 +7,12 @@ Minecraft 1.15.x
 
 import logging
 import pickle
+import uuid
 from abc import abstractmethod
 from base64 import b64encode
 from collections import deque
 from math import ceil, floor
 from operator import itemgetter
-from random import randint
 
 from mido import MidiFile, merge_tracks, tick2second
 
@@ -20,16 +20,27 @@ from base.command_types import *
 from base.minecraft_types import *
 
 
-def frange(start, stop, step):
+def float_range(start, stop, step):
     while start < stop:
         yield start
         start += step
 
 
-def rand_function(namespace):
+def rand_uuid():
+    return str(uuid.uuid4()).replace("-", "")
+
+
+def rand_func(namespace):
     return Function(
-        namespace, randint(0, 2 ** 63 - 1)
+        namespace, rand_uuid()
     )
+
+
+def fast_copy(message, **overrides):  # Insecure!!
+    msg = message.__class__.__new__(message.__class__)
+    vars(msg).update(vars(message))
+    vars(msg).update(overrides.copy())
+    return msg
 
 
 class BaseGenerator(MidiFile):
@@ -55,7 +66,7 @@ class BaseGenerator(MidiFile):
         # Plugin stuffs
         self.loaded_tick_count = 0
         self.built_tick_count = 0
-        self.axis_y_index = 0
+        self.y_axis_index = 0
         self.build_axis_index = 0
         self.wrap_axis_index = 0
         self.wrap_state = False
@@ -68,10 +79,12 @@ class BaseGenerator(MidiFile):
         self.initial_functions = list()
         self.extended_functions = list()
         # Tick packages
+        self.single_tick_limit = 255
         self._use_function_array = False  # * Experimental *
-        self._current_tick_pkg = rand_function(self.namespace)
+        self._auto_function_array = True  # * Experimental *
+        self._current_tick_pkg = rand_func(self.namespace)
 
-        logging.debug("Preloading")
+        logging.debug("Preloading tracks.")
         self.merged_tracks = merge_tracks(
             self.tracks
         )  # Preload tracks for speed
@@ -94,7 +107,7 @@ class BaseGenerator(MidiFile):
         maximum = floor(max_allow) if strict else max_allow  # Rounded max acceptable tick rate
         minimum = ceil(min_allow) if strict else min_allow  # Rounded min acceptable tick rate
 
-        for i in frange(minimum, maximum, step):
+        for i in float_range(minimum, maximum, step):
             timestamp = message_count = round_diff_sum = 0
 
             for message in self:
@@ -135,7 +148,7 @@ class BaseGenerator(MidiFile):
         self._set_command_block(
             command=f"function {self.namespace}:{pkg.identifier}"
         )
-        self._current_tick_pkg = rand_function(self.namespace)
+        self._current_tick_pkg = rand_func(self.namespace)
 
     def add_tick_command(self, command=None, *args, **kwargs):
         if self._use_function_array:  # Use functions to build music
@@ -146,7 +159,7 @@ class BaseGenerator(MidiFile):
         if x_shift is None:
             x_shift = self.build_axis_index
         if y_shift is None:
-            y_shift = self.axis_y_index
+            y_shift = self.y_axis_index
         if z_shift is None:
             z_shift = self.wrap_axis_index
         if command is None:
@@ -159,17 +172,15 @@ class BaseGenerator(MidiFile):
             f'setblock ~{x_shift} ~{y_shift} ~{z_shift} minecraft:{"chain_" if chain else ""}command_block[facing={facing}]{{auto:{"true" if auto else "false"},Command:"{command}",LastOutput:false,TrackOutput:false}} replace'
         )
 
-        self.axis_y_index += 1
+        self.y_axis_index += 1
 
-    def __iter__(self):
-        if self.type == 2:
-            raise TypeError("can't merge tracks in type 2 (asynchronous) file")
-
+    def __iter__(self):  # Insecure!!
         tempo = 5e5
+
         for msg in self.merged_tracks:
             delta = tick2second(msg.time, self.ticks_per_beat, tempo) if msg.time > 0 else 0
 
-            yield msg.copy(time=delta)
+            yield fast_copy(msg, time=delta)
 
             if msg.type == 'set_tempo':
                 tempo = msg.tempo
@@ -185,6 +196,18 @@ class BaseGenerator(MidiFile):
                 "Function array is a unstable feature and you may *NOT* commit a issue for that."
             ))
         self._use_function_array = value
+
+    @property
+    def auto_function_array(self):
+        return self._auto_function_array
+
+    @auto_function_array.setter
+    def auto_function_array(self, value):
+        if value:
+            warnings.warn(RuntimeWarning(
+                "Function array is a unstable feature and you may *NOT* commit a issue for that."
+            ))
+        self._auto_function_array = value
 
     # Plugin APIs
 
@@ -302,6 +325,9 @@ class InGameGenerator(BaseGenerator):
     def load_messages(self):
         logging.debug("Loading message(s) from the MIDI file.")
 
+        # Clear loaded items
+        self.loaded_messages.clear()
+
         for middle in self.middles:
             for dependency in middle.__dependencies__:
                 assert dependency in tuple(
@@ -311,8 +337,6 @@ class InGameGenerator(BaseGenerator):
                     map(type, self.middles)), f"Conflict {conflict} of {middle} is strictly forbidden, but found."
             middle.init(self)
 
-        # Clear loaded items
-        self.loaded_messages.clear()
         timestamp = message_count = 0
 
         program_mapping, volume_mapping, phase_mapping, pitch_mapping = {}, {}, {}, {}
@@ -410,6 +434,18 @@ class InGameGenerator(BaseGenerator):
     def build_events(self):
         logging.debug(f'Building {len(self.loaded_messages)} event(s) loaded.')
 
+        self.built_function.clear()
+
+        # Clear built items
+        self.tick_cache.clear()
+        self.built_tick_count = 0
+
+        self.tick_index = 0
+        self.y_axis_index = 0
+        self.build_axis_index = 0
+        self.wrap_axis_index = 0
+        self.is_first_tick = self.is_last_tick = False
+
         for plugin in self.plugins:
             for dependency in plugin.__dependencies__:
                 assert dependency in tuple(
@@ -418,18 +454,6 @@ class InGameGenerator(BaseGenerator):
                 assert conflict not in tuple(
                     map(type, self.plugins)), f"Conflict {conflict} of {plugin} is strictly forbidden, but found."
             plugin.init(self)
-
-        # Clear built items
-        self.tick_cache.clear()
-        self.built_tick_count = 0
-
-        self.tick_index = 0
-        self.axis_y_index = 0
-        self.build_axis_index = 0
-        self.wrap_axis_index = 0
-        self.is_first_tick = self.is_last_tick = False
-
-        self.built_function.clear()
 
         for self.tick_index in range(-self.blank_ticks, self.loaded_tick_count + 1):
             self.build_axis_index = self.built_tick_count % self.wrap_length  # For plugins
@@ -454,7 +478,16 @@ class InGameGenerator(BaseGenerator):
             while (messages := self.loaded_messages) and messages[0]["tick"] == self.tick_index:
                 self.tick_cache.append(self.loaded_messages.popleft())  # Deque object is used to improve performance
 
-            for message in self.tick_cache:
+            if self.auto_function_array:
+                if len(self.tick_cache) > 127:
+                    self._current_tick_pkg = rand_func(self.namespace)
+                    self._use_function_array = True
+                else:
+                    self._use_function_array = False
+
+            for i, message in enumerate(self.tick_cache):
+                if i > self.single_tick_limit and not (self.is_first_tick or self.is_last_tick):
+                    break
                 if message["type"] == "note_on":
                     self.add_tick_command(command=self.get_play_cmd(message))
 
@@ -470,7 +503,7 @@ class InGameGenerator(BaseGenerator):
             # Get ready for next tick
             self.built_tick_count += 1
             self.tick_cache.clear()
-            self.axis_y_index = 0
+            self.y_axis_index = 0
 
             if self.tick_index % 100 == 0:  # Show progress
                 logging.info(f"Built {self.tick_index} tick(s), {self.loaded_tick_count + 1} tick(s) in all.")
@@ -576,6 +609,18 @@ class RealTimeGenerator(BaseGenerator):
     def build_events(self):
         logging.debug(f'Building {len(self.loaded_messages)} event(s).')
 
+        self.built_function.clear()
+
+        # Clear built items
+        self.tick_cache.clear()
+        self.built_tick_count = 0
+
+        self.tick_index = 0
+        self.y_axis_index = 0
+        self.build_axis_index = 0
+        self.wrap_axis_index = 0
+        self.is_first_tick = self.is_last_tick = False
+
         for plugin in self.plugins:
             for dependency in plugin.__dependencies__:
                 assert dependency in tuple(
@@ -584,18 +629,6 @@ class RealTimeGenerator(BaseGenerator):
                 assert conflict not in tuple(
                     map(type, self.plugins)), f"Conflict {conflict} of {plugin} is strictly forbidden, but found."
             plugin.init(self)
-
-        # Clear built items
-        self.tick_cache.clear()
-        self.built_tick_count = 0
-
-        self.tick_index = 0
-        self.axis_y_index = 0
-        self.build_axis_index = 0
-        self.wrap_axis_index = 0
-        self.is_first_tick = self.is_last_tick = False
-
-        self.built_function.clear()
 
         for self.tick_index in range(-self.blank_ticks, self.loaded_tick_count + 1):
             self.build_axis_index = self.built_tick_count % self.wrap_length  # For plugins
@@ -620,8 +653,17 @@ class RealTimeGenerator(BaseGenerator):
             while (messages := self.loaded_messages) and messages[0]["tick"] == self.tick_index:
                 self.tick_cache.append(self.loaded_messages.popleft())  # Deque object is used to improve performance
 
-            for message in self.tick_cache:
-                self.add_tick_command(command=f"say pythonAccess={message['msg']}")
+            if self.auto_function_array:
+                if len(self.tick_cache) > 127:
+                    self._current_tick_pkg = rand_func(self.namespace)
+                    self._use_function_array = True
+                else:
+                    self._use_function_array = False
+
+            for i, message in enumerate(self.tick_cache):
+                if i > self.single_tick_limit and not (self.is_first_tick or self.is_last_tick):
+                    break
+                self.add_tick_command(command=f"say !{message['msg']}")
 
             for plugin in self.plugins:  # Execute plugin
                 plugin.exec(self)
@@ -632,7 +674,7 @@ class RealTimeGenerator(BaseGenerator):
             # Get ready for next tick
             self.built_tick_count += 1
             self.tick_cache.clear()
-            self.axis_y_index = 0
+            self.y_axis_index = 0
 
             if self.tick_index % 100 == 0:  # Show progress
                 logging.info(f"Built {self.tick_index} tick(s), {self.loaded_tick_count + 1} tick(s) in all.")
@@ -643,27 +685,27 @@ class RealTimeGenerator(BaseGenerator):
 
     def on_notes(self):
         return tuple(map(itemgetter("raw"),
-            filter(lambda message: message["type"] == "note_on", self.loaded_messages)
-        )
-        )  # Every tick
+                         filter(lambda message: message["type"] == "note_on", self.loaded_messages)
+                         )
+                     )  # Every tick
 
     def off_notes(self):
         return tuple(map(itemgetter("raw"),
-            filter(lambda message: message["type"] == "note_off", self.loaded_messages)
-        )
-        )  # Every tick
+                         filter(lambda message: message["type"] == "note_off", self.loaded_messages)
+                         )
+                     )  # Every tick
 
     def current_on_notes(self):
         return tuple(map(itemgetter("raw"),
-            filter(lambda message: message["type"] == "note_on", self.tick_cache)
-        )
-        )  # Only for this tick
+                         filter(lambda message: message["type"] == "note_on", self.tick_cache)
+                         )
+                     )  # Only for this tick
 
     def current_off_notes(self):
         return tuple(map(itemgetter("raw"),
-            filter(lambda message: message["type"] == "note_off", self.tick_cache)
-        )
-        )  # Only for this tick
+                         filter(lambda message: message["type"] == "note_off", self.tick_cache)
+                         )
+                     )  # Only for this tick
 
     def future_on_notes(self, tick):
         for message in self.loaded_messages:
@@ -678,30 +720,39 @@ class RealTimeGenerator(BaseGenerator):
 
 
 if __name__ == '__main__':
-    from mid.plugins import progress, music_title, piano_roll, viewport
+    from mid.plugins import tweaks, piano, title
 
     logging.basicConfig(level=logging.DEBUG)
 
-    generator = RealTimeGenerator(fp=r"D:\音乐\【完美佳作03】打上花火 - DAKAO × 米津玄师.mid", plugins=[
-        piano_roll.PianoRoll(),
-        viewport.Viewport(
-            *viewport.Viewport.PRESET2
+    generator = RealTimeGenerator(fp=r"D:\音乐\Victory.mid", plugins=[
+        tweaks.FixedTime(
+            value=18000
         ),
-        progress.Progress(
+        tweaks.FixedWeather(
+            value="clear"
+        ),
+        piano.PianoRoll(
+            block_type="wool"
+        ),
+        tweaks.ProgressBar(
             text="(。・∀・)ノ 进度条"
         ),
-        music_title.MusicTitle(
+        title.MainTitle(
             [
                 {
-                    "text": "Pre-release",
+                    "text": "キミがいれば《名侦探柯南：引爆摩天楼》插曲",
                     "color": "red"
                 }
             ], {
-                "text": "By kworker"
+                "text": "By kworker, powered by MCDI"
             }
+        ),
+        tweaks.Viewport(
+            *tweaks.Viewport.PRESET2
         ),
     ])
     generator.auto_tick_rate()
     generator.load_messages()
     generator.build_events()
-    generator.write_datapack(r"D:\Minecraft\Server\world")
+    generator.write_datapack(r"D:\Minecraft\Client\.minecraft\versions\1.14.4-forge-28.1.56\saves\MCDI")
+    # generator.write_datapack(r"D:\Minecraft\Server\world")
