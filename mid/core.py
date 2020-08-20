@@ -79,7 +79,7 @@ class BaseGenerator(MidiFile):
         self.initial_functions = list()
         self.extended_functions = list()
         # Tick packages
-        self.single_tick_limit = 255
+        self.single_tick_limit = 128
         self._use_function_array = False  # * Experimental *
         self._auto_function_array = True  # * Experimental *
         self._current_tick_pkg = rand_func(self.namespace)
@@ -130,6 +130,9 @@ class BaseGenerator(MidiFile):
         # Reduces lag
         self.built_function.append(f"gamerule commandBlockOutput false")
         self.built_function.append(f"gamerule sendCommandFeedback false")
+        self.built_function.insert(
+            0, f"gamerule maxCommandChainLength 2147483647\n"
+        )
 
         logging.info(f"Writing {len(self.built_function)} command(s) built.")
 
@@ -236,11 +239,12 @@ class InGameGenerator(BaseGenerator):
     def __init__(self, frontend, plugins=None, middles=None, *args, **kwargs):
         if plugins is None:
             plugins = []
+        else:
+            self.plugins = list(plugins)
         if middles is None:
             middles = []
-
-        self.plugins = list(plugins)
-        self.middles = list(middles)
+        else:
+            self.middles = list(middles)
 
         super(InGameGenerator, self).__init__(*args, **kwargs)
 
@@ -546,8 +550,8 @@ class RealTimeGenerator(BaseGenerator):
     def __init__(self, plugins=None, *args, **kwargs):
         if plugins is None:
             plugins = []
-
-        self.plugins = list(plugins)
+        else:
+            self.plugins = list(plugins)
 
         super(RealTimeGenerator, self).__init__(*args, **kwargs)
 
@@ -724,9 +728,9 @@ if __name__ == '__main__':
 
     logging.basicConfig(level=logging.DEBUG)
 
-    generator = RealTimeGenerator(fp=r"D:\音乐\Victory.mid", plugins=[
+    generator = RealTimeGenerator(fp=r"D:\音乐\Megalovania.mid", plugins=[
         tweaks.FixedTime(
-            value=18000
+            value=6000
         ),
         tweaks.FixedWeather(
             value="clear"
@@ -740,7 +744,7 @@ if __name__ == '__main__':
         title.MainTitle(
             [
                 {
-                    "text": "キミがいれば《名侦探柯南：引爆摩天楼》插曲",
+                    "text": "Megalovania",
                     "color": "red"
                 }
             ], {

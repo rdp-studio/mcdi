@@ -5,14 +5,14 @@ from mid.plugins import Plugin
 
 class MainTitle(Plugin):
     __author__ = "kworker"
-    __doc__ = """Title at the beginning and the end, useful for video making"""
+    __doc__ = """Title at the beginning and the end of the music, useful for video making."""
 
     DEFAULT_IN_TITLE = {
-        "text": "Codename: MCDI",
+        "text": "Powered by MCDI",
         "color": "green"
     }
     DEFAULT_IN_SUBTITLE = {
-        "text": "By kworker (Frank Yang)"
+        "text": "By kworker, powered by MCDI"
     }
     DEFAULT_OUT_TITLE = {
         "text": "谢谢你看完这个视频!",
@@ -43,7 +43,7 @@ class MainTitle(Plugin):
 
 class CopyrightTitle(Plugin):
     __author__ = "kworker"
-    __doc__ = """Title throughout the music, useful for video making"""
+    __doc__ = """Title throughout the music, useful for video making."""
 
     def __init__(self,
                  text: "The copyright information throughout the music."):

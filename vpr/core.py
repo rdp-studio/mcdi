@@ -7,7 +7,7 @@ from base.minecraft_types import *
 
 
 class Generator(object):
-    def __init__(self, fp, pack_name="miku_v4x_o_evec", namespace="mcdi", func="vocal", wrap_length=128, blank_ticks=0):
+    def __init__(self, fp, pack_name, namespace="mcdi", identifier="vocal"):
         logging.debug("Initializing. Reading VPR data.")
 
         with zipfile.ZipFile(fp, mode="r", compresslevel=None) as file:
@@ -17,8 +17,8 @@ class Generator(object):
 
         self.pack_name = pack_name
         self.namespace = namespace
-        self.wrap_length = wrap_length
-        self.blank_ticks = blank_ticks
+        self.wrap_length = 128
+        self.blank_ticks = 0
 
         self.tick_cache = list()
         self.build_count = 0
@@ -29,7 +29,9 @@ class Generator(object):
         self.y_index = 0
 
         self.loaded_messages = deque()
-        self.built_function = Function(namespace, func)
+        self.built_function = Function(
+            namespace, func
+        )
         self.numer = 4
         self.denom = 4
         self.tempo = 120

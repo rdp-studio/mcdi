@@ -3,6 +3,9 @@ from mid.plugins import Plugin
 
 
 class FixedTime(Plugin):
+    __author__ = "kworker"
+    __doc__ = """Allows you to have a fixed time while playing the music."""
+
     def __init__(self,
                  value: "The time(in tick) to fix."):
         self.value = value
@@ -13,6 +16,9 @@ class FixedTime(Plugin):
 
 
 class FixedWeather(Plugin):
+    __author__ = "kworker"
+    __doc__ = """Allows you to have a fixed weather while playing the music."""
+
     def __init__(self,
                  value: "The weather name to fix."):
         self.value = value
@@ -22,13 +28,9 @@ class FixedWeather(Plugin):
         generator.built_function.append(f"weather {self.value}")
 
 
-from mid.core import BaseGenerator
-from mid.plugins import Plugin
-
-
 class Viewport(Plugin):
     __author__ = "kworker"
-    __doc__ = """Fixed or flexible viewport, useful for video making"""
+    __doc__ = """Fixed or flexible viewport, useful for video making."""
 
     PRESET1 = [-16, 32, 64, 0, 16, 64]
     PRESET2 = [-24, 48, 64, 0, 24, 64]
@@ -62,7 +64,7 @@ class Viewport(Plugin):
 
 class ProgressBar(Plugin):
     __author__ = "kworker"
-    __doc__ = """Simply shows a progress bar, useful for video making"""
+    __doc__ = """Simply shows a progress bar, useful for video making."""
 
     def __init__(self,
                  pk: "The ID for the bossbar. For professional users only." = 0,

@@ -7,7 +7,7 @@ from mid.plugins import Plugin
 
 class PianoRoll(Plugin):
     __author__ = "kworker"
-    __doc__ = """Shows a fancy piano roll"""
+    __doc__ = """Shows a fancy piano roll."""
 
     def __init__(self,
                  wrap_shift: "Moves the piano roll further away in wrap axis." = 1,

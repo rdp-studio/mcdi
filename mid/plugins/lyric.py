@@ -6,7 +6,7 @@ from mid.plugins import Plugin
 
 class Lyric(Plugin):
     __author__ = "kworker"
-    __doc__ = """Lyric throughout the music, useful for video making"""
+    __doc__ = """Lyric throughout the music, useful for video making."""
 
     def __init__(self,
                  fp: "The path of the *.lrc file.",
