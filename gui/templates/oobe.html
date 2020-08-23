@@ -19,60 +19,85 @@
                     <small>稍后您仍可更改这些设置。很熟悉MCDI？您当然也可以跳过向导。</small>
                 </div>
                 <div class="card-content" id="wizard-pg-1" style="display: none">
-                    <h1>您的游戏在何处？</h1>
+                    <h1>您游玩何种游戏？</h1>
                     <div>
-                        请在下方的文本框里键入或<a id="mc-path-open">浏览</a>您的<code>.minecraft/</code>路径。
-                        <div class="row input-field">
-                            <i class="material-icons prefix">folder_open</i>
-                            <input id="mc-path" type="text">
-                            <label for="mc-path">.minecraft/ 路径</label>
+                        <div>
+                            请在下方的单选框里选择您的Minecraft类型。
                         </div>
+                        <small>1.12.2及更低的版本已不受支持。</small>
+
+                        <form>
+                            <p>
+                                <label>
+                                    <input class="with-gap" name="midi-type" type="radio" id="mc-type-client"/>
+                                    <span>我通常使用客户端。</span>
+                                </label>
+                            </p>
+                            <p>
+                                <label>
+                                    <input class="with-gap" name="midi-type" type="radio" id="mc-type-server"/>
+                                    <span>我通常使用服务端。</span>
+                                </label>
+                            </p>
+                        </form>
                     </div>
                 </div>
                 <div class="card-content" id="wizard-pg-2" style="display: none">
-                    <h1>您使用什么版本？</h1>
+                    <h1>您的游戏在何处？</h1>
                     <div>
-                        请在下方的下拉菜单里选择您常用的Minecraft版本。<span class="red-text">1.12.2及更低的版本已经不再受支持。</span>
-                        <div class="row">
-                            <label>Minecraft版本</label>
-                            <select class="browser-default" id="mc-ver">
-                                <option value="" disabled selected>&lt;请选择一个版本&gt;</option>
-                                <option value="1">1.14.4</option>
-                                <option value="2">1.15.2</option>
-                                <option value="3">1.16.2</option>
-                            </select>
+                        <div>
+                            请在下方的文本框里键入或<a id="mc-path-open">浏览</a>您的游戏路径。
                         </div>
-                        <div class="row">
-                            <label>
-                                <input type="checkbox" class="filled-in" id="mc-ver-force"/>
-                                <span>我知道我在做什么！使用1.12.2及更低的版本！</span>
-                            </label>
+
+                        <div class="row input-field">
+                            <i class="material-icons prefix">folder_open</i>
+                            <input id="mc-path" type="text">
+                            <label for="mc-path">游戏路径</label>
                         </div>
                     </div>
                 </div>
                 <div class="card-content" id="wizard-pg-3" style="display: none">
+                    <h1>您使用什么版本？</h1>
+                    <div>
+                        <div>
+                            请在下方的下拉框里选择您的Minecraft版本。
+                        </div>
+                        <small>1.12.2及更低的版本已不受支持。</small>
+
+                        <div class="row">
+                            <label for="mc-ver">Minecraft版本</label>
+                            <select class="browser-default" id="mc-ver">
+                                <option value="" disabled selected>-</option>
+                            </select>
+                        </div>
+                    </div>
+                </div>
+                <div class="card-content" id="wizard-pg-4" style="display: none">
                     <h1>您希望如何生成？</h1>
                     <div>
-                        请在下方的单选框里选择您希望使用的生成方式；在下方的勾选框里选择您是否希望自动调整参数。
+                        <div>
+                            请在下方的选择框里选择您的生成方式。
+                        </div>
+
                         <div class="row">
                             <form>
                                 <p>
                                     <label>
                                         <input class="with-gap" name="midi-type" type="radio" id="midi-type-ig"/>
-                                        <span>我希望使用游戏内的资源包。</span>
+                                        <span>我希望使用游戏内的资源包。（红石音乐）</span>
                                     </label>
                                 </p>
                                 <p>
                                     <label>
                                         <input class="with-gap" name="midi-type" type="radio" id="midi-type-rt"/>
-                                        <span>我希望使用外部的MIDI音源。</span>
+                                        <span>我希望使用外部的MIDI音源。（黑石音乐）</span>
                                     </label>
                                 </p>
                             </form>
                         </div>
                         <div class="row">
                             <label>
-                                <input type="checkbox" class="filled-in" id="auto-adjust"/>
+                                <input type="checkbox" class="filled-in" id="auto-adjust" checked/>
                                 <span>我希望MCDI为我自动调整好所有的参数。</span>
                             </label>
                         </div>
@@ -88,7 +113,7 @@
             </div>
         </div>
         <script>
-            wizard.init();
+            wizard.init(0, true, false);
         </script>
     </div>
 {% endblock %}

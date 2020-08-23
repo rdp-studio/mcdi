@@ -311,6 +311,19 @@ class _LazyDOMElement(object):
     def set_css(self, attribute: str, value) -> None:
         self.window.execute_js(f"set_css('{self.selector}', '{attribute}', '{value}')")
 
+    def getattr(self, attribute: str) -> str:
+        return self.window.execute_js(f"get_attr('{self.selector}', '{attribute}')")
+
+    def setattr(self, attribute: str, value) -> None:
+        self.window.execute_js(f"set_attr('{self.selector}', '{attribute}', '{value}')")
+
+    def getprop(self, attribute: str) -> str:
+        return self.window.execute_js(f"get_prop('{self.selector}', '{attribute}')")
+
+    def setprop(self, attribute: str, value) -> None:
+        self.window.execute_js(f"set_prop('{self.selector}', '{attribute}', '{value}')")
+
+
     def hide(self) -> None:
         self.window.execute_js(f"$('{self.selector}').hide()")
 

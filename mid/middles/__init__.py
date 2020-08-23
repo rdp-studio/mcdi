@@ -1,9 +1,11 @@
 from mid.core import Generator
 
 
-class Middleware(object):
+class Middle(object):
     __dependencies__ = []
     __conflicts__ = []
+
+    __author__ = "undefined"
 
     def __init__(self):
         pass

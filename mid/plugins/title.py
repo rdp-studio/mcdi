@@ -5,7 +5,7 @@ from mid.plugins import Plugin
 
 class MainTitle(Plugin):
     __author__ = "kworker"
-    __doc__ = """Title at the beginning and the end of the music, useful for video making."""
+    __doc__ = """Title at the beginning and the end of the music."""
 
     DEFAULT_IN_TITLE = {
         "text": "Powered by MCDI",
@@ -41,9 +41,9 @@ class MainTitle(Plugin):
             generator.add_tick_command(command=f"title @a subtitle {json.dumps(self.out_subtitle, ensure_ascii=False)}")
 
 
-class CopyrightTitle(Plugin):
+class CopyTitle(Plugin):
     __author__ = "kworker"
-    __doc__ = """Title throughout the music, useful for video making."""
+    __doc__ = """Title throughout the music(e.g. copyright, author)."""
 
     def __init__(self,
                  text: "The copyright information throughout the music."):

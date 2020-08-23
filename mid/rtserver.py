@@ -2,6 +2,7 @@ import os
 import pickle
 import re
 import threading
+import time
 from base64 import b64decode
 import mido
 import logging
@@ -25,8 +26,13 @@ class Server(object):
         self.port = mido.open_output(midi_device)
 
     def handler(self, data):
-        if matched := re.findall(r"\[\d{2}:\d{2}:\d{2}\sINFO\]:\s\[@\]\s!(.*)", data):
-            self.port.send(pickle.loads(b64decode(matched[0])))
+        if matched := re.findall(r"\[\d{2}:\d{2}:\d{2}\sINFO\]:\s\[@\]\s!midi_out\s(.*)", data):
+            message = pickle.loads(b64decode(matched[0]))
+            time.sleep(message.time)
+            self.port.send(message)
+
+        elif matched := re.findall(r"\[\d{2}:\d{2}:\d{2}\sINFO\]:\s\[@\]\s!func_exec\s(.*)", data):
+            NotImplemented
 
     def mainloop(self):
         logging.info(f"Minecraft server MIDI agent('{__file__}') started.")

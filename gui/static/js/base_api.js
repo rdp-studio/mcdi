@@ -127,11 +127,27 @@ function set_value(selector, value) {
 }
 
 function get_css(selector, attr) {
-    return $(selector).css(attr)
+    return $(selector).css(attr);
 }
 
 function set_css(selector, attr, value) {
     $(selector).css(attr, value);
+}
+
+function get_attr(selector, attr) {
+    return $(selector).attr(attr);
+}
+
+function set_attr(selector, attr, value) {
+    $(selector).attr(attr, value);
+}
+
+function get_prop(selector, attr) {
+    return $(selector).prop(attr);
+}
+
+function set_prop(selector, attr, value) {
+    $(selector).prop(attr, value);
 }
 
 function get_width(selector) {

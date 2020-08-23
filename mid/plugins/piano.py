@@ -16,7 +16,7 @@ class PianoRoll(Plugin):
                  mapping: "Maps the channels to the colors of the falling blocks." = None,
                  block_type: "'stained_glass', 'concrete', 'wool' or 'terracotta'" = None,
                  layered: "Show the piano roll in layers for different channels." = True,
-                 effect_limit: "Show effects only when note number < this value." = 128):
+                 effect_limit: "Show effects only when note number < this value." = 0):
         self.wrap_shift = wrap_shift
         self.axis_y_shift = axis_y_shift
         self.reverse_wrap = reverse_wrap

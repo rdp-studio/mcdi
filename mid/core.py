@@ -92,40 +92,6 @@ class BaseGenerator(MidiFile):
 
         self.tempo = 5e5
 
-    def auto_tick_rate(self, duration=None, tolerance=5, step=.025, base=20, strict=False):
-        if not duration:  # Calculate the length myself
-            duration = self.length
-
-        logging.info("Calculating maximum and minimum tick rate.")
-
-        max_allow = base + base * (tolerance / duration)  # Max acceptable tick rate
-        min_allow = base - base * (tolerance / duration)  # Min acceptable tick rate
-        logging.debug(f"Maximum and minimum tick rate: {max_allow}, {min_allow}.")
-
-        min_time_diff = 1  # No bigger than 1 possible
-        best_tick_rate = base  # The no-choice fallback
-        maximum = floor(max_allow) if strict else max_allow  # Rounded max acceptable tick rate
-        minimum = ceil(min_allow) if strict else min_allow  # Rounded min acceptable tick rate
-
-        for i in float_range(minimum, maximum, step):
-            timestamp = message_count = round_diff_sum = 0
-
-            for message in self:
-                round_diff_sum += abs(round(raw := (timestamp * i)) - raw)
-                timestamp += message.time
-                message_count += 1
-            round_diff_sum /= message_count
-
-            if round_diff_sum < min_time_diff:
-                min_time_diff = round_diff_sum
-                best_tick_rate = float(i)
-
-            logging.debug(f"Tick rate = {i}, round difference = {round_diff_sum}.")
-
-        self.tick_rate = best_tick_rate
-
-        logging.info(f"Tick rate calculation finished({best_tick_rate}).")
-
     def write_datapack(self, *args, **kwargs):
         # Reduces lag
         self.built_function.append(f"gamerule commandBlockOutput false")
@@ -238,11 +204,11 @@ class BaseGenerator(MidiFile):
 class InGameGenerator(BaseGenerator):
     def __init__(self, frontend, plugins=None, middles=None, *args, **kwargs):
         if plugins is None:
-            plugins = []
+            self.plugins = []
         else:
             self.plugins = list(plugins)
         if middles is None:
-            middles = []
+            self.middles = []
         else:
             self.middles = list(middles)
 
@@ -261,6 +227,40 @@ class InGameGenerator(BaseGenerator):
 
         self.long_flags = []
         self.half_flags = []
+
+    def auto_tick_rate(self, duration=None, tolerance=5, step=.025, base=20, strict=False):
+        if not duration:  # Calculate the length myself
+            duration = self.length
+
+        logging.info("Calculating maximum and minimum tick rate.")
+
+        max_allow = base + base * (tolerance / duration)  # Max acceptable tick rate
+        min_allow = base - base * (tolerance / duration)  # Min acceptable tick rate
+        logging.debug(f"Maximum and minimum tick rate: {max_allow}, {min_allow}.")
+
+        min_time_diff = 1  # No bigger than 1 possible
+        best_tick_rate = base  # The no-choice fallback
+        maximum = floor(max_allow) if strict else max_allow  # Rounded max acceptable tick rate
+        minimum = ceil(min_allow) if strict else min_allow  # Rounded min acceptable tick rate
+
+        for i in float_range(minimum, maximum, step):
+            timestamp = message_count = round_diff_sum = 0
+
+            for message in self:
+                round_diff_sum += abs(round(raw := (timestamp * i)) - raw)
+                timestamp += message.time
+                message_count += 1
+            round_diff_sum /= message_count
+
+            if round_diff_sum < min_time_diff:
+                min_time_diff = round_diff_sum
+                best_tick_rate = float(i)
+
+            logging.debug(f"Tick rate = {i}, round difference = {round_diff_sum}.")
+
+        self.tick_rate = best_tick_rate
+
+        logging.info(f"Tick rate calculation finished({best_tick_rate}).")
 
     def long_note_analysis(self, threshold=40, ignore=()):
         logging.debug("Analysing long notes.")
@@ -435,7 +435,7 @@ class InGameGenerator(BaseGenerator):
         self.loaded_messages = deque(sorted(self.loaded_messages, key=itemgetter("tick")))
         logging.info(f"Load procedure finished. {len(self.loaded_messages)} event(s) loaded.")
 
-    def build_events(self):
+    def build_messages(self):
         logging.debug(f'Building {len(self.loaded_messages)} event(s) loaded.')
 
         self.built_function.clear()
@@ -547,9 +547,11 @@ class InGameGenerator(BaseGenerator):
 
 
 class RealTimeGenerator(BaseGenerator):
+    IN_GAME_COMPATIBLE = {"v": 255, "program": 0, "phase": 64, "pitch": 1, "half": False, "long": False, "rt": True}
+
     def __init__(self, plugins=None, *args, **kwargs):
         if plugins is None:
-            plugins = []
+            self.plugins = []
         else:
             self.plugins = list(plugins)
 
@@ -574,34 +576,27 @@ class RealTimeGenerator(BaseGenerator):
                     logging.info(f"MIDI META message: {message.text}.")
                 continue
 
-            tick_time = round(
+            tick_time = (
                 (timestamp + message.time) * self.tick_rate / self.tick_scale
             )
-            self.loaded_tick_count = max(self.loaded_tick_count, tick_time)
+            self.loaded_tick_count = max(self.loaded_tick_count, int(tick_time))
 
-            message_count += 1
-
-            pkl_message = b64encode(pickle.dumps(message)).decode()
+            shift = (tick_time - int(tick_time)) / self.tick_rate * self.tick_scale
+            pkl_message = b64encode(pickle.dumps(fast_copy(message, time=shift))).decode()
 
             message_dict = {
                 "msg": pkl_message,
-                "tick": tick_time,
+                "tick": int(tick_time),
                 "type": message.type,
             }
 
             if "note" in message.type:
-                message_dict["raw"] = {
-                    "type": message.type,
-                    "ch": message.channel,
-                    "note": message.note,
-                    "tick": int(tick_time),
-                    "v": 255,
-                    "program": 0,
-                    "phase": 64,
-                    "pitch": 1,
-                    "half": False,
-                    "long": False
-                }  # Compatibility for in-game plugins
+                message_dict["igc"] = {
+                    "type": message.type, "ch": message.channel, "note": message.note, "tick": tick_time,
+                }  # Compatibility for in-game plugins~
+                message_dict["igc"].update(self.IN_GAME_COMPATIBLE)
+
+            message_count += 1
 
             self.loaded_messages.append(message_dict)
 
@@ -610,7 +605,7 @@ class RealTimeGenerator(BaseGenerator):
         self.loaded_messages = deque(sorted(self.loaded_messages, key=itemgetter("tick")))
         logging.info(f"Load procedure finished. {len(self.loaded_messages)} event(s) loaded.")
 
-    def build_events(self):
+    def build_messages(self):
         logging.debug(f'Building {len(self.loaded_messages)} event(s).')
 
         self.built_function.clear()
@@ -667,7 +662,7 @@ class RealTimeGenerator(BaseGenerator):
             for i, message in enumerate(self.tick_cache):
                 if i > self.single_tick_limit and not (self.is_first_tick or self.is_last_tick):
                     break
-                self.add_tick_command(command=f"say !{message['msg']}")
+                self.add_tick_command(command=f"say !midi_out {message['msg']}")
 
             for plugin in self.plugins:  # Execute plugin
                 plugin.exec(self)
@@ -688,25 +683,25 @@ class RealTimeGenerator(BaseGenerator):
     # Plugin APIs
 
     def on_notes(self):
-        return tuple(map(itemgetter("raw"),
+        return tuple(map(itemgetter("igc"),
                          filter(lambda message: message["type"] == "note_on", self.loaded_messages)
                          )
                      )  # Every tick
 
     def off_notes(self):
-        return tuple(map(itemgetter("raw"),
+        return tuple(map(itemgetter("igc"),
                          filter(lambda message: message["type"] == "note_off", self.loaded_messages)
                          )
                      )  # Every tick
 
     def current_on_notes(self):
-        return tuple(map(itemgetter("raw"),
+        return tuple(map(itemgetter("igc"),
                          filter(lambda message: message["type"] == "note_on", self.tick_cache)
                          )
                      )  # Only for this tick
 
     def current_off_notes(self):
-        return tuple(map(itemgetter("raw"),
+        return tuple(map(itemgetter("igc"),
                          filter(lambda message: message["type"] == "note_off", self.tick_cache)
                          )
                      )  # Only for this tick
@@ -725,38 +720,47 @@ class RealTimeGenerator(BaseGenerator):
 
 if __name__ == '__main__':
     from mid.plugins import tweaks, piano, title
+    from mid.frontends import Soma
 
     logging.basicConfig(level=logging.DEBUG)
 
-    generator = RealTimeGenerator(fp=r"D:\音乐\Megalovania.mid", plugins=[
-        tweaks.FixedTime(
-            value=6000
-        ),
-        tweaks.FixedWeather(
-            value="clear"
-        ),
+    generator = InGameGenerator(fp=r"D:\音乐\Unravel.mid", frontend=Soma(), plugins=[
         piano.PianoRoll(
             block_type="wool"
         ),
-        tweaks.ProgressBar(
-            text="(。・∀・)ノ 进度条"
-        ),
-        title.MainTitle(
-            [
-                {
-                    "text": "Megalovania",
-                    "color": "red"
-                }
-            ], {
-                "text": "By kworker, powered by MCDI"
-            }
-        ),
-        tweaks.Viewport(
-            *tweaks.Viewport.PRESET2
-        ),
     ])
     generator.auto_tick_rate()
+    generator.long_note_analysis()
+
+    # generator = RealTimeGenerator(fp=r"D:\音乐\Unravel.mid", plugins=[
+    #     tweaks.FixedTime(
+    #         value=18000
+    #     ),
+    #     tweaks.FixedRain(
+    #         value="clear"
+    #     ),
+    #     piano.PianoRoll(
+    #         block_type="wool"
+    #     ),
+    #     tweaks.ProgressBar(
+    #         text="(。・∀・)ノ 进度条"
+    #     ),
+    #     # title.MainTitle(
+    #     #     [
+    #     #         {
+    #     #             "text": "Unravel",
+    #     #             "color": "blue"
+    #     #         }
+    #     #     ], {
+    #     #         "text": "Dr.寻一"
+    #     #     }
+    #     # ),
+    #     tweaks.Viewport(
+    #         *tweaks.Viewport.PRESET2
+    #     ),
+    # ])
+    # generator.single_tick_limit = 2 ** 31 - 1
     generator.load_messages()
-    generator.build_events()
+    generator.build_messages()
     generator.write_datapack(r"D:\Minecraft\Client\.minecraft\versions\1.14.4-forge-28.1.56\saves\MCDI")
     # generator.write_datapack(r"D:\Minecraft\Server\world")

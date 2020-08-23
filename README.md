@@ -34,12 +34,12 @@ This app creates music by generating mcfunction(s), so only **Minecraft (Java Ed
     + Piano: Shows a fancy piano roll with fancy graphics. *Just for fun:)*
 + `title.py`
     + MainTitle: Title at the beginning and the end of the music, useful for video making.
-    + CopyrightTitle: Title throughout the music(e.g. copyright), useful for video making.
+    + CopyTitle: Title throughout the music(e.g. copyright, author), useful for video making.
 + `tweaks.py`
     + Viewport: Fixed or flexible viewport, useful for video making.
     + ProgressBar: Simply shows a progress bar, useful for video making.
     + FixedTime: Allows you to have a fixed time while playing the music.
-    + FixedWeather: Allows you to have a fixed weather while playing the music.
+    + FixedRain: Allows you to have a fixed rain while playing the music.
     
 \[ Still adding more! Just look forward! \]
 

@@ -2,7 +2,7 @@ window.wizard = {
     pageId: 0,
     pageSum: 0,
 
-    init: function (pageEnter = 0) {
+    init: function (pageEnter = 0, bindPrev=true, bindNext=true) {
         wizard.pageSum = 0;
 
         while (true) {
@@ -18,12 +18,14 @@ window.wizard = {
         $("#wizard-pg-" + pageEnter).show();
         wizard.pageId = pageEnter
 
-        $("#wizard-prev").click(function () {
-            wizard.fadePrev()
-        });
-        $("#wizard-next").click(function () {
-            wizard.fadeNext()
-        });
+        if (bindPrev)
+            $("#wizard-prev").click(function () {
+                wizard.fadePrev()
+            });
+        if (bindNext)
+            $("#wizard-next").click(function () {
+                wizard.fadeNext()
+            });
 
         wizard.updateBtnState();
     },

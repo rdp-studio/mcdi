@@ -1,0 +1,483 @@
+{% extends "base.html" %}
+
+{% block head %}
+    <script>
+        function goToHome() {
+            $("#nav-midi").fadeOut("fast", function () {
+                $("#nav-vpr").fadeOut("fast", function () {
+                    $("#nav-rtsv").fadeOut("fast", function () {
+                        $("#nav-settings").fadeOut("fast", function () {
+                            $("#nav-home").fadeIn("fast");
+                            $("#dash").addClass('pulse');
+                        });
+                    });
+                });
+            });
+        }
+
+        function goToMIDI() {
+            $("#nav-home").fadeOut("fast", function () {
+                $("#nav-vpr").fadeOut("fast", function () {
+                    $("#nav-rtsv").fadeOut("fast", function () {
+                        $("#nav-settings").fadeOut("fast", function () {
+                            $("#nav-midi").fadeIn("fast");
+                            $("#dash").removeClass('pulse');
+                        });
+                    });
+                });
+            });
+        }
+
+        function goToVPR() {
+            $("#nav-home").fadeOut("fast", function () {
+                $("#nav-midi").fadeOut("fast", function () {
+                    $("#nav-rtsv").fadeOut("fast", function () {
+                        $("#nav-settings").fadeOut("fast", function () {
+                            $("#nav-vpr").fadeIn("fast");
+                            $("#dash").removeClass('pulse');
+                        });
+                    });
+                });
+            });
+        }
+
+        function goToRtSv() {
+            $("#nav-home").fadeOut("fast", function () {
+                $("#nav-midi").fadeOut("fast", function () {
+                    $("#nav-vpr").fadeOut("fast", function () {
+                        $("#nav-settings").fadeOut("fast", function () {
+                            $("#nav-rtsv").fadeIn("fast");
+                            $("#dash").removeClass('pulse');
+                        });
+                    });
+                });
+            });
+        }
+
+        function goToSettings() {
+            $("#nav-home").fadeOut("fast", function () {
+                $("#nav-midi").fadeOut("fast", function () {
+                    $("#nav-vpr").fadeOut("fast", function () {
+                        $("#nav-rtsv").fadeOut("fast", function () {
+                            $("#nav-settings").fadeIn("fast");
+                            $("#dash").removeClass('pulse');
+                        });
+                    });
+                });
+            });
+        }
+    </script>
+{% endblock %}
+
+{% block body %}
+    <div class="root">
+        <div id="modal-license" class="modal">
+            <div class="modal-content">
+                <h4>授权协议</h4>
+                <pre id="license"></pre>
+            </div>
+            <div class="modal-footer">
+                <a href="#" class="modal-close waves-effect btn-flat">关闭</a>
+            </div>
+        </div>
+
+        <div id="modal-about" class="modal">
+            <div class="modal-content">
+                <h4>关于MCDI</h4>
+                <div id="about" style="text-align: center;">
+                    <img src="/static/img/logo.png" alt="MCDI" style="width: 5rem; height: 5rem;"/>
+
+                    <h1 style="padding-bottom: 0; margin-bottom: 0;">
+                        MCDI<small>(Ver.1.0.0build821)</small>
+                    </h1>
+
+                    <q style="padding-top: 0; margin-top: 0;" title="A2M和NBS都可以扔了（小声BB）">
+                        最强大的Minecraft音乐生成器。<small>（bushi</small>
+                    </q><br/>
+
+                    <small>
+                        <a href="#" id="about-l1">Github项目</a>&nbsp;
+                        <a href="#" id="about-l2">B站个人空间</a>&nbsp;
+                        <a href="#" id="about-l3">友情链接（RSM）</a>&nbsp;
+                    </small>
+                </div>
+            </div>
+
+            <div class="modal-footer">
+                <a href="#" class="modal-close waves-effect btn-flat">关闭</a>
+            </div>
+        </div>
+
+        <div id="modal-midi" class="modal">
+            <div class="modal-content">
+                <h4>高级设置</h4>
+                <div class="row">
+                    <div class="input-field col s12">
+                        <select id="ig-midi-frontend">
+                            <option value="" disabled selected>- 资源包前端缺失，请重新安装 -</option>
+                        </select>
+                        <label for="ig-midi-frontend">资源包前端</label>
+                    </div>
+                    <div class="input-field col s6">
+                        <label for="wrap-length">折行长度：米（0=不折行）</label>
+                        <input id="wrap-length" type="number" min="0">
+                    </div>
+                    <div class="input-field col s6">
+                        <label for="blank-ticks">留白时间：刻（0=不留白）</label>
+                        <input id="blank-ticks" type="number" min="0">
+                    </div>
+                    <p class="col s4">
+                        <label>
+                            <input class="with-gap" name="group1" type="radio"/>
+                            <span>不使用刻函数</span>
+                        </label>
+                    </p>
+                    <p class="col s4">
+                        <label>
+                            <input class="with-gap" name="group1" type="radio"/>
+                            <span>自动选择</span>
+                        </label>
+                    </p>
+                    <p class="col s4">
+                        <label>
+                            <input class="with-gap" name="group1" type="radio"/>
+                            <span>总使用刻函数</span>
+                        </label>
+                    </p>
+                    <div class="input-field col s6">
+                        <label for="tick-rate">刻速率：刻/秒（太大会炸）</label>
+                        <input id="tick-rate" type="number" min="0">
+                    </div>
+                    <div class="input-field col s6">
+                        <label for="tick-scale">倍速：倍（太小会炸）</label>
+                        <input id="tick-scale" type="number" min="0">
+                    </div>
+                    <p class="valign-wrapper col s6">
+                        <label style="transform: translateY(.8rem);">
+                            <input type="checkbox" id="auto-tick-rate" class="filled-in" checked="checked"/>
+                            <span>弹性刻速率（推荐）</span>
+                        </label>
+                    </p>
+                    <div class="input-field col s6">
+                        <label for="tolerance">时长容差：秒</label>
+                        <input id="tolerance" type="number" min="0">
+                    </div>
+                    <div class="input-field col s6">
+                        <label for="step">刻速率步进：刻/秒（太小会炸）</label>
+                        <input id="step" type="number" min="0">
+                    </div>
+                    <div class="input-field col s6">
+                        <label for="base">基础刻速率：刻/秒（太大会炸）</label>
+                        <input id="base" type="number" min="0">
+                    </div>
+                    <p class="valign-wrapper col s6">
+                        <label style="transform: translateY(.8rem);">
+                            <input type="checkbox" id="long-note-analysis" class="filled-in" checked="checked"/>
+                            <span>长音分析（推荐）</span>
+                        </label>
+                    </p>
+                    <div class="input-field col s6">
+                        <label for="long-note-threshold">长音阈值：秒</label>
+                        <input id="long-note-threshold" type="number" min="0">
+                    </div>
+                    <p class="valign-wrapper col s6">
+                        <label style="transform: translateY(.8rem);">
+                            <input type="checkbox" id="half-note-analysis" class="filled-in" checked="checked"/>
+                            <span>半刻黑科技（选装）</span>
+                        </label>
+                    </p>
+                    <div class="input-field col s6">
+                        <label for="half-note-threshold">半刻阈值：百分比</label>
+                        <input id="half-note-threshold" type="number" min="0" max="100">
+                    </div>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <a href="#" class="modal-close waves-effect btn-flat">关闭</a>
+            </div>
+        </div>
+
+        <div class="card root-card horizontal">
+            <div class="card-stacked" id="nav-home">
+                <div class="card-content">
+                    <h1>欢迎使用MCDI。</h1>
+                    <p>
+                        在右下角的按钮里选择一个动作以开始，或在下方选择一个最近打开的文件。
+                    </p>
+                    <ul>
+                        <li><a>D:\音乐\【完美佳作03】打上花火 - DAKAO × 米津玄师.mid</a></li>
+                    </ul>
+                </div>
+                <div class="card-action">
+                    <a class="modal-trigger" href="#modal-license">授权</a>
+                    <a class="modal-trigger" href="#modal-about">关于</a>
+                </div>
+            </div>
+
+            <div class="card-stacked" id="nav-midi" style="display: none;">
+                <div class="card-content">
+                    <div>
+                        <ul class="tabs">
+                            <li class="tab col s3">
+                                <a href="#midi-file" id="midi-file-tab">文件</a>
+                            </li>
+                            <li class="tab col s3">
+                                <a href="#midi-plugin" id="midi-plugin-tab">插件</a>
+                            </li>
+                            <li class="tab col s3">
+                                <a href="#midi-middle" id="midi-middle-tab">中间件</a>
+                            </li>
+                        </ul>
+                    </div>
+                    <br/>
+                    <div id="midi-file">
+                        <div class="row">
+                            <div class="input-field col s12">
+                                <select id="mc-save">
+                                    <option value="" disabled selected>-</option>
+                                </select>
+                                <label for="mc-save">您的世界</label>
+                            </div>
+                        </div>
+                        <div class="row">
+                            <div class="input-field col s12">
+                                <i class="material-icons prefix">library_music</i>
+                                <input id="midi-path" type="text">
+                                <label for="midi-path">您的MIDI路径</label>
+                            </div>
+                        </div>
+                        <small>小提示：在一个路径输入框上双击即可打开浏览窗口。</small>
+                    </div>
+                    <div id="midi-plugin">
+                        <div class="preload">
+                            <div class="overlay">
+                            </div>
+                            <div class="body">
+                                <div class="preloader-wrapper active">
+                                    <div class="spinner-layer spinner-yellow-only">
+                                        <div class="circle-clipper left">
+                                            <div class="circle"></div>
+                                        </div>
+                                        <div class="gap-patch">
+                                            <div class="circle"></div>
+                                        </div>
+                                        <div class="circle-clipper right">
+                                            <div class="circle"></div>
+                                        </div>
+                                    </div>
+                                </div>
+                                <br/>
+                                <p class="white-text">正在为您加载插件。请耐心等待。</p>
+                            </div>
+                        </div>
+                        <div class="row">
+                            <div class="input-field col s12">
+                                <select id="plugin-list" multiple>
+                                </select>
+                                <label for="plugin-list">选择您使用的插件</label>
+                            </div>
+                        </div>
+                        <div class="row" style="display: flex;">
+                            <div class="input-field col" style="flex: 2;">
+                                <select id="plugin-cfg-list">
+                                    <option value="" disabled selected>- 至少选择一个插件以开始配置 -</option>
+                                </select>
+                                <label for="plugin-cfg-list">配置您的插件</label>
+                            </div>
+                            <div class="input-field col" style="flex: none;">
+                                <a class="waves-effect waves-light btn" id="plugin-chk-btn">刷新</a>
+                            </div>
+                            <div class="input-field col" style="flex: none;">
+                                <a class="waves-effect waves-light btn" id="plugin-cfg-btn">配置</a>
+                            </div>
+                        </div>
+                    </div>
+                    <div id="midi-middle">
+                        <div class="preload">
+                            <div class="overlay">
+                            </div>
+                            <div class="body">
+                                <div class="preloader-wrapper active">
+                                    <div class="spinner-layer spinner-yellow-only">
+                                        <div class="circle-clipper left">
+                                            <div class="circle"></div>
+                                        </div>
+                                        <div class="gap-patch">
+                                            <div class="circle"></div>
+                                        </div>
+                                        <div class="circle-clipper right">
+                                            <div class="circle"></div>
+                                        </div>
+                                    </div>
+                                </div>
+                                <br/>
+                                <p class="white-text">正在为您加载中间件。请耐心等待。</p>
+                            </div>
+                        </div>
+                        <div class="row">
+                            <div class="input-field col s12">
+                                <select id="middle-list" multiple>
+                                </select>
+                                <label for="middle-list">选择您使用的中间件</label>
+                            </div>
+                        </div>
+                        <div class="row" style="display: flex;">
+                            <div class="input-field col" style="flex: 2;">
+                                <select id="middle-cfg-list">
+                                    <option value="" disabled selected>- 至少选择一个中间件以开始配置 -</option>
+                                </select>
+                                <label for="middle-cfg-list">配置您的中间件</label>
+                            </div>
+                            <div class="input-field col" style="flex: none;">
+                                <a class="waves-effect waves-light btn" id="middle-chk-btn">刷新</a>
+                            </div>
+                            <div class="input-field col" style="flex: none;">
+                                <a class="waves-effect waves-light btn" id="middle-cfg-btn">配置</a>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                <div class="card-action">
+                    <a href="#">开始并祈祷别崩溃</a>
+                </div>
+            </div>
+
+            <div class="card-stacked" id="nav-vpr" style="display: none;">
+                <div class="card-content">
+                    <h1>这里还没有完成施工……</h1>
+                    <h2>你可以去RSM群里来催我更新~<img src="/static/img/joker.jpg"/></h2>
+                </div>
+            </div>
+
+            <div class="card-stacked" id="nav-rtsv" style="display: none;">
+                <div class="card-content">
+                    <h1>这里还没有完成施工……</h1>
+                    <h2>你可以去RSM群里来催我更新~<img src="/static/img/joker.jpg"/></h2>
+                </div>
+            </div>
+
+            <div class="card-stacked" id="nav-settings" style="display: none;">
+                <div class="card-content">
+                    <div>
+                        <ul class="tabs">
+                            <li class="tab col s3">
+                                <a href="#settings-general" id="settings-general-tab">通用</a>
+                            </li>
+                            <li class="tab col s3">
+                                <a href="#settings-midi" id="settings-midi-tab">MIDI生成</a>
+                            </li>
+                            <li class="tab col s3">
+                                <a href="#settings-vpr" id="settings-vpr-tab">VPR生成</a>
+                            </li>
+                            <li class="tab col s3">
+                                <a href="#settings-rtsv" id="settings-rtsv-tab">MIDI服务器</a>
+                            </li>
+                        </ul>
+                    </div>
+                    <br/>
+                    <div id="settings-general">
+                        <div class="row">
+                            <div class="input-field col s6">
+                                <i class="material-icons prefix">code</i>
+                                <input id="func-ns" type="text">
+                                <label for="func-ns">函数命名空间</label>
+                            </div>
+                            <div class="input-field col s6">
+                                <label>
+                                    <input type="checkbox" class="filled-in" checked="checked"/>
+                                    <span>快速拷贝函数（小概率出现特性）</span>
+                                </label>
+                            </div>
+                        </div>
+                        <div class="row">
+                            <div class="input-field col s6">
+                                <i class="material-icons prefix">folder_open</i>
+                                <input id="mc-path" type="text">
+                                <label for="mc-path">游戏路径</label>
+                            </div>
+                            <div class="input-field col s6">
+                                <label>
+                                    <input type="checkbox" class="filled-in" checked="checked"/>
+                                    <span>禁用版本独立（BUGJUMP启动器）</span>
+                                </label>
+                            </div>
+                        </div>
+                        <div class="row">
+                            <div class="input-field col s12">
+                                <select id="mc-ver">
+                                    <option value="" disabled selected>- 键入或浏览一个合法的路径以开始配置 -</option>
+                                </select>
+                                <label for="mc-ver">Minecraft版本</label>
+                            </div>
+                        </div>
+                        <small>小提示：在一个路径输入框上双击即可打开浏览窗口。</small>
+                    </div>
+                    <div id="settings-midi">
+                        <div class="row">
+                            <div class="input-field col s6">
+                                <label>
+                                    <input class="with-gap" name="midi-type" type="radio" id="midi-type-ig"/>
+                                    <span>游戏内声音资源—<span class="red-text">红</span>石音乐(lè)</span>
+                                </label>
+                            </div>
+                            <div class="input-field col s6">
+                                <label>
+                                    <input class="with-gap" name="midi-type" type="radio" id="midi-type-rt"/>
+                                    <span>游戏外MIDI波表—<span class="black-text">黑</span>石音乐(lè)</span>
+                                </label>
+                            </div>
+                        </div>
+                        <div class="row">
+                            <div class="input-field col s12">
+                                <label>
+                                    <input type="checkbox" class="filled-in" id="auto-adjust" checked/>
+                                    <span>我希望MCDI为我自动调整好所有的参数。（调的真的很好，但是没MC味）</span>
+                                </label>
+                            </div>
+                        </div>
+                        <div class="row">
+                            <div class="input-field col s12 center-align">
+                                <a class="waves-effect waves-light btn modal-trigger" href="#modal-midi"><i
+                                        class="material-icons left">build</i>高级设置</a>
+                            </div>
+                        </div>
+                    </div>
+                    <div id="settings-vpr">
+                        <h1>这里还没有完成施工……</h1>
+                        <h2>你可以去RSM群里来催我更新~<img src="/static/img/joker.jpg"/></h2>
+                    </div>
+                    <div id="settings-rtsv">
+                        <h1>这里还没有完成施工……</h1>
+                        <h2>你可以去RSM群里来催我更新~<img src="/static/img/joker.jpg"/></h2>
+                    </div>
+                </div>
+            </div>
+
+            <div class="fixed-action-btn">
+                <a class="btn-floating btn-large blue pulse" id="dash">
+                    <i class="large material-icons">dashboard</i>
+                </a>
+                <ul>
+                    <li><a class="btn-floating red" onclick="goToHome();"><i class="material-icons">
+                        home
+                    </i></a></li>
+                    <li><a class="btn-floating green" onclick="goToMIDI();"><i class="material-icons">
+                        library_music
+                    </i></a></li>
+                    <li><a class="btn-floating green" onclick="goToVPR();"><i class="material-icons">
+                        settings_voice
+                    </i></a></li>
+                    <li><a class="btn-floating blue" onclick="goToRtSv();"><i class="material-icons">
+                        settings_input_svideo
+                    </i></a></li>
+                    <li><a class="btn-floating blue" onclick="goToSettings();"><i class="material-icons">
+                        settings
+                    </i></a></li>
+                </ul>
+            </div>
+        </div>
+    </div>
+    <script>
+        $.get("/static/LICENSE", (res) => $("#license").text(res));
+    </script>
+{% endblock %}

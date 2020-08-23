@@ -15,9 +15,9 @@ class FixedTime(Plugin):
         generator.built_function.append(f"time set {self.value}")
 
 
-class FixedWeather(Plugin):
+class FixedRain(Plugin):
     __author__ = "kworker"
-    __doc__ = """Allows you to have a fixed weather while playing the music."""
+    __doc__ = """Allows you to have a fixed rain while playing the music."""
 
     def __init__(self,
                  value: "The weather name to fix."):
@@ -30,7 +30,7 @@ class FixedWeather(Plugin):
 
 class Viewport(Plugin):
     __author__ = "kworker"
-    __doc__ = """Fixed or flexible viewport, useful for video making."""
+    __doc__ = """Fixed or flexible viewport."""
 
     PRESET1 = [-16, 32, 64, 0, 16, 64]
     PRESET2 = [-24, 48, 64, 0, 24, 64]
@@ -64,7 +64,7 @@ class Viewport(Plugin):
 
 class ProgressBar(Plugin):
     __author__ = "kworker"
-    __doc__ = """Simply shows a progress bar, useful for video making."""
+    __doc__ = """Just a progress bar."""
 
     def __init__(self,
                  pk: "The ID for the bossbar. For professional users only." = 0,
