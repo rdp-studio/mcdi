@@ -89,9 +89,9 @@ class BlockGenerator(object):
             logging.debug(f"Resizing the picture to {self.x}x{self.y}.")
             self.img = self.img.resize((self.x, self.y), resample=resample)
         else:
-            logging.debug("No resize needed. Continue...")
+            logging.debug("No resize needed. Continue.")
 
-        logging.debug(f"Loading {(pixel_count := self.x * self.y)} pixels...")
+        logging.debug(f"Loading {(pixel_count := self.x * self.y)} pixels.")
         pixels = self.img.load()
 
         logging.info(f"Building {pixel_count} pixels loaded.")
@@ -172,9 +172,9 @@ class TextGenerator(object):
             logging.debug(f"Resizing the picture to {self.x}x{self.y}.")
             self.img = self.img.resize((self.x, self.y), resample=resample)
         else:
-            logging.debug("No resize needed. Continue...")
+            logging.debug("No resize needed. Continue.")
 
-        logging.debug(f"Loading {(pixel_count := self.x * self.y)} pixels...")
+        logging.debug(f"Loading {(pixel_count := self.x * self.y)} pixels.")
         pixels = self.img.load()
 
         logging.info(f"Building {pixel_count} pixels loaded.")
@@ -266,7 +266,3 @@ class TextGenerator(object):
         logging.info(f"Writing {len(self.built_function)} command(s) built.")
         self.built_function.to_pack(*args, **kwargs)
         logging.info("Write procedure finished.")
-
-
-if __name__ == '__main__':
-    pass
