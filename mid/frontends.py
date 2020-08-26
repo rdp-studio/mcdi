@@ -23,7 +23,7 @@ class WorkerXG(Frontend):
     def __init__(self,
                  use_stop: "Use the stopsound command" = True,
                  use_drum: "Use the MIDI drum channel" = True,
-                 stop_drum: "Use stopsound for drum" = False):
+                 stop_drum: "Use stopsound for drum" = True):
 
         super(WorkerXG, self).__init__()
         self.use_stop = use_stop
@@ -41,7 +41,7 @@ class WorkerXG(Frontend):
                 f"xg.{program - 1 if program > 0 else 'drum'}.{note}",
                 channel="voice", for_="@s",
                 position=LocalPosition(-abs_phase, 0, 2 - abs(abs_phase)),
-                velocity=v / 255, pitch=pitch,
+                velocity=v / 127, pitch=pitch,
             ),
             as_="@a", at="@s"
         )
@@ -74,7 +74,7 @@ class Soma(Frontend):
     def __init__(self,
                  use_stop: "Use the stopsound command" = True,
                  use_drum: "Use the MIDI drum channel" = True,
-                 stop_drum: "Use stopsound for drum" = False):
+                 stop_drum: "Use stopsound for drum" = True):
 
         super(Soma, self).__init__()
         self.use_stop = use_stop
@@ -92,7 +92,7 @@ class Soma(Frontend):
                 f"{str(program) + 'c' * (program in self.LONG_SAFE and long)}.{note}",
                 channel="voice", for_="@s",
                 position=LocalPosition(-abs_phase, 0, 2 - abs(abs_phase)),
-                velocity=v / 255, pitch=pitch,
+                velocity=v / 127, pitch=pitch,
             ),
             as_="@a", at="@s"
         )
@@ -135,7 +135,7 @@ class Vanilla(Frontend):
                  f6_inst: "Instrument to play F#6-F#7 with" = "bell",
                  use_stop: "Use the stopsound command" = True,
                  use_drum: "Use the MIDI drum channel" = False,
-                 stop_drum: "Use stopsound for drum" = False):
+                 stop_drum: "Use stopsound for drum" = True):
 
         super(Vanilla, self).__init__()
         self.insts = f1_inst, f2_inst, f3_inst, f4_inst, f5_inst, f6_inst
@@ -167,7 +167,7 @@ class Vanilla(Frontend):
                 f"minecraft:block.note_block.{inst}",
                 channel="voice", for_="@s",
                 position=LocalPosition(-abs_phase, 0, 2 - abs(abs_phase)),
-                velocity=v / 255, pitch=self.pitches[note - base_pitch * 18],
+                velocity=v / 127, pitch=self.pitches[note - base_pitch * 18],
             ),
             as_="@a", at="@s"
         )
@@ -202,7 +202,7 @@ class Mcrg(Frontend):
                  inst_name: "Name of the target instrument" = "inst",
                  use_stop: "Use the stopsound command" = True,
                  use_drum: "Use the MIDI drum channel" = False,
-                 stop_drum: "Use stopsound for drum" = False):
+                 stop_drum: "Use stopsound for drum" = True):
 
         super(Mcrg, self).__init__()
         self.pack_name = pack_name
@@ -222,7 +222,7 @@ class Mcrg(Frontend):
                 f"{self.pack_name}.{self.inst_name}.{note}",
                 channel="voice", for_="@s",
                 position=LocalPosition(-abs_phase, 0, 2 - abs(abs_phase)),
-                velocity=v / 255, pitch=pitch,
+                velocity=v / 127, pitch=pitch,
             ),
             as_="@a", at="@s"
         )

@@ -55,22 +55,13 @@ class BaseGenerator(MidiFile):
 
         super(BaseGenerator, self).__init__(fp)
 
-        self.wrap_length = 128
         self.blank_ticks = 0
         self.tick_rate = 20
         self.tick_scale = 1
         self.namespace = namespace
         # Build variables
-        self.tick_index = 0
         self.tick_cache = list()
-        # Plugin stuffs
         self.loaded_tick_count = 0
-        self.built_tick_count = 0
-        self.y_axis_index = 0
-        self.build_axis_index = 0
-        self.wrap_axis_index = 0
-        self.wrap_state = False
-        self.is_first_tick = self.is_last_tick = False
         # Function stuffs
         self.loaded_messages = deque()
         self.built_function = Function(
@@ -80,9 +71,6 @@ class BaseGenerator(MidiFile):
         self.extended_functions = list()
         # Tick packages
         self.single_tick_limit = 128
-        self._use_function_array = False  # * Experimental *
-        self._auto_function_array = True  # * Experimental *
-        self._current_tick_pkg = rand_func(self.namespace)
 
         logging.debug("Preloading tracks.")
         self.merged_tracks = merge_tracks(
@@ -90,14 +78,12 @@ class BaseGenerator(MidiFile):
         )  # Preload tracks for speed
         vars(self)["length"] = self.length
 
-        self.tempo = 5e5
-
     def write_datapack(self, *args, **kwargs):
         # Reduces lag
         self.built_function.append(f"gamerule commandBlockOutput false")
         self.built_function.append(f"gamerule sendCommandFeedback false")
         self.built_function.insert(
-            0, f"gamerule maxCommandChainLength 2147483647\n"
+            0, f"gamerule maxCommandChainLength 2147483647"
         )
 
         logging.info(f"Writing {len(self.built_function)} command(s) built.")
@@ -111,6 +97,41 @@ class BaseGenerator(MidiFile):
             function.to_pack(*args, **kwargs)  # Save these to datapack
 
         logging.info("Write procedure finished. Now enjoy your music!")
+
+    def __iter__(self):  # Insecure!!
+        tempo = 5e5
+
+        for msg in self.merged_tracks:
+            delta = tick2second(msg.time, self.ticks_per_beat, tempo) if msg.time > 0 else 0
+
+            yield fast_copy(msg, time=delta)
+
+            if msg.type == 'set_tempo':
+                tempo = msg.tempo
+
+
+class BaseCbGenerator(BaseGenerator):
+    def __init__(self, *args, **kwargs):
+        super(BaseCbGenerator, self).__init__(*args, **kwargs)
+
+        self.wrap_length = 128
+        # Build variables
+        self.tick_index = 0
+        # Plugin stuffs
+        self.built_tick_count = 0
+        self.y_axis_index = 0
+        self.build_axis_index = 0
+        self.wrap_axis_index = 0
+        self.wrap_state = False
+        self.is_first_tick = False
+        self.is_last_tick = False
+
+        # Tick packages
+        self._use_function_array = False  # * Experimental *
+        self._auto_function_array = True  # * Experimental *
+        self._current_tick_pkg = rand_func(self.namespace)
+
+        self.schedules = {}
 
     def _add_tick_package(self):
         self.extended_functions.append(pkg := self._current_tick_pkg)
@@ -143,17 +164,6 @@ class BaseGenerator(MidiFile):
 
         self.y_axis_index += 1
 
-    def __iter__(self):  # Insecure!!
-        tempo = 5e5
-
-        for msg in self.merged_tracks:
-            delta = tick2second(msg.time, self.ticks_per_beat, tempo) if msg.time > 0 else 0
-
-            yield fast_copy(msg, time=delta)
-
-            if msg.type == 'set_tempo':
-                tempo = msg.tempo
-
     @property
     def use_function_array(self):
         return self._use_function_array
@@ -180,6 +190,11 @@ class BaseGenerator(MidiFile):
 
     # Plugin APIs
 
+    def schedule(self, dt, command):
+        if self.tick_index + dt not in self.schedules.keys():
+            self.schedules[self.tick_index + dt] = []
+        self.schedules[self.tick_index + dt].append(command)
+
     @abstractmethod
     def on_notes(self):
         pass
@@ -201,7 +216,7 @@ class BaseGenerator(MidiFile):
         pass
 
 
-class InGameGenerator(BaseGenerator):
+class InGameGenerator(BaseCbGenerator):
     def __init__(self, frontend, plugins=None, middles=None, *args, **kwargs):
         if plugins is None:
             self.plugins = []
@@ -336,6 +351,7 @@ class InGameGenerator(BaseGenerator):
             for dependency in middle.__dependencies__:
                 assert dependency in tuple(
                     map(type, self.middles)), f"Dependency {dependency} of {middle} is required, but not found."
+            middle.dependency_connect(filter(lambda x: type(x) in middle.__dependencies__, self.middles))
             for conflict in middle.__conflicts__:
                 assert conflict not in tuple(
                     map(type, self.middles)), f"Conflict {conflict} of {middle} is strictly forbidden, but found."
@@ -347,9 +363,7 @@ class InGameGenerator(BaseGenerator):
 
         for index, message in enumerate(self):
             if message.is_meta:
-                if message.type == "set_tempo":
-                    self.tempo = message.tempo
-                elif message.type == "time_signature":
+                if message.type == "time_signature":
                     logging.debug(f"MIDI file timing info: {message.numerator}/{message.denominator}.")
                 elif message.type == "key_signature":
                     logging.debug(f"MIDI file pitch info: {message.key}.")
@@ -368,6 +382,8 @@ class InGameGenerator(BaseGenerator):
                 else:
                     program = 1
 
+                program = 0 if message.channel == 9 else program
+
                 if message.channel in volume_mapping.keys() and self.gvol_enabled:  # Set volume
                     volume = volume_mapping[message.channel]["value"] / 127
                 else:
@@ -375,7 +391,7 @@ class InGameGenerator(BaseGenerator):
 
                 volume_value = volume * message.velocity * self.volume_factor
 
-                if message.channel in phase_mapping.keys() and self.pan_enabled:  # Set program
+                if message.channel in phase_mapping.keys() and self.pan_enabled:  # Set phase
                     phase_value = phase_mapping[message.channel]["value"]
                 else:
                     phase_value = 64  # Middle phase
@@ -386,9 +402,6 @@ class InGameGenerator(BaseGenerator):
                     pitch = self.pitch_base  # No pitch
 
                 pitch_value = 2 ** ((pitch / self.pitch_base - 1) * self.pitch_factor / 12)
-
-                if message.channel == 9:
-                    program = 0  # Force drum
 
                 long = index in self.long_flags
                 half = index in self.half_flags
@@ -454,6 +467,7 @@ class InGameGenerator(BaseGenerator):
             for dependency in plugin.__dependencies__:
                 assert dependency in tuple(
                     map(type, self.plugins)), f"Dependency {dependency} of {plugin} is required, but not found."
+            plugin.dependency_connect(filter(lambda x: type(x) in plugin.__dependencies__, self.plugins))
             for conflict in plugin.__conflicts__:
                 assert conflict not in tuple(
                     map(type, self.plugins)), f"Conflict {conflict} of {plugin} is strictly forbidden, but found."
@@ -501,6 +515,11 @@ class InGameGenerator(BaseGenerator):
             for plugin in self.plugins:  # Execute plugin
                 plugin.exec(self)
 
+            if self.tick_index in self.schedules.keys():
+                for i in self.schedules[self.tick_index]:
+                    self.add_tick_command(command=i)
+                del self.schedules[self.tick_index]
+
             if self._use_function_array:
                 self._add_tick_package()
 
@@ -546,7 +565,7 @@ class InGameGenerator(BaseGenerator):
                 break
 
 
-class RealTimeGenerator(BaseGenerator):
+class RealTimeGenerator(BaseCbGenerator):
     IN_GAME_COMPATIBLE = {"v": 255, "program": 0, "phase": 64, "pitch": 1, "half": False, "long": False, "rt": True}
 
     def __init__(self, plugins=None, *args, **kwargs):
@@ -577,7 +596,7 @@ class RealTimeGenerator(BaseGenerator):
                 continue
 
             tick_time = (
-                (timestamp + message.time) * self.tick_rate / self.tick_scale
+                    (timestamp + message.time) * self.tick_rate / self.tick_scale
             )
             self.loaded_tick_count = max(self.loaded_tick_count, int(tick_time))
 
@@ -624,6 +643,7 @@ class RealTimeGenerator(BaseGenerator):
             for dependency in plugin.__dependencies__:
                 assert dependency in tuple(
                     map(type, self.plugins)), f"Dependency {dependency} of {plugin} is required, but not found."
+            plugin.dependency_connect(filter(lambda x: type(x) in plugin.__dependencies__, self.plugins))
             for conflict in plugin.__conflicts__:
                 assert conflict not in tuple(
                     map(type, self.plugins)), f"Conflict {conflict} of {plugin} is strictly forbidden, but found."
@@ -666,6 +686,11 @@ class RealTimeGenerator(BaseGenerator):
 
             for plugin in self.plugins:  # Execute plugin
                 plugin.exec(self)
+
+            if self.tick_index in self.schedules.keys():
+                for i in self.schedules[self.tick_index]:
+                    self.add_tick_command(command=i)
+                del self.schedules[self.tick_index]
 
             if self._use_function_array:
                 self._add_tick_package()
@@ -718,23 +743,211 @@ class RealTimeGenerator(BaseGenerator):
                 break
 
 
+class NoteBlockGenerator(BaseGenerator):
+    instruments = {
+        "bass", "snare", "hat", "basedrum", "bell", "flute", "chime", "guitar", "xylophone",
+        "iron_xylophone", "cow_bell", "didgeridoo", "bit", "banjo", "pling", "harp"
+    }
+    drumset = {"snare", "hat", "basedrum"}
+
+    def __init__(self, *args, **kwargs):
+        super(NoteBlockGenerator, self).__init__(*args, **kwargs)
+
+        self.tick_rate = 10
+
+        # Load variables
+        self.prog_enabled = True
+        self.gvol_enabled = True
+        self.pan_enabled = True
+        self.volume_factor = 1
+
+        self.regions = []
+
+        self.base_block = "minecraft:quartz_pillar[axis=z]"
+        self.path_block = "minecraft:quartz_slab[type=top]"
+
+    def auto_tick_rate(self, duration=None, tolerance=5, step=.025, base=10, strict=False):
+        if not duration:  # Calculate the length myself
+            duration = self.length
+
+        logging.info("Calculating maximum and minimum tick rate.")
+
+        max_allow = base + base * (tolerance / duration)  # Max acceptable tick rate
+        min_allow = base - base * (tolerance / duration)  # Min acceptable tick rate
+        logging.debug(f"Maximum and minimum tick rate: {max_allow}, {min_allow}.")
+
+        min_time_diff = 1  # No bigger than 1 possible
+        best_tick_rate = base  # The no-choice fallback
+        maximum = floor(max_allow) if strict else max_allow  # Rounded max acceptable tick rate
+        minimum = ceil(min_allow) if strict else min_allow  # Rounded min acceptable tick rate
+
+        for i in float_range(minimum, maximum, step):
+            timestamp = message_count = round_diff_sum = 0
+
+            for message in self:
+                round_diff_sum += abs(round(raw := (timestamp * i)) - raw)
+                timestamp += message.time
+                message_count += 1
+            round_diff_sum /= message_count
+
+            if round_diff_sum < min_time_diff:
+                min_time_diff = round_diff_sum
+                best_tick_rate = float(i)
+
+            logging.debug(f"Tick rate = {i}, round difference = {round_diff_sum}.")
+
+        self.tick_rate = best_tick_rate
+
+        logging.info(f"Tick rate calculation finished({best_tick_rate}).")
+
+    def load_messages(self):
+        logging.debug("Loading message(s) from the MIDI file.")
+
+        # Clear loaded items
+        self.loaded_messages.clear()
+        timestamp = message_count = 0
+
+        program_mapping, volume_mapping, phase_mapping, pitch_mapping = {}, {}, {}, {}
+
+        for index, message in enumerate(self):
+            if message.is_meta:
+                if message.type == "time_signature":
+                    logging.debug(f"MIDI file timing info: {message.numerator}/{message.denominator}.")
+                elif message.type == "key_signature":
+                    logging.debug(f"MIDI file pitch info: {message.key}.")
+                elif message.type in ("text", "copyright"):
+                    logging.info(f"MIDI META message: {message.text}.")
+                continue
+
+            tick_time = round(
+                (timestamp + message.time) * self.tick_rate / self.tick_scale
+            )
+            self.loaded_tick_count = max(self.loaded_tick_count, tick_time)
+
+            if "note" in message.type:  # Note_on / note_off
+                if message.channel in program_mapping.keys() and self.prog_enabled:  # Set program
+                    program = program_mapping[message.channel]["value"] + 1
+                else:
+                    program = 1
+
+                program = 0 if message.channel == 9 else program
+
+                if message.channel in volume_mapping.keys() and self.gvol_enabled:  # Set volume
+                    volume = volume_mapping[message.channel]["value"] / 127 * 14
+                else:
+                    volume = 14  # Max volume
+
+                volume_value = round(volume * message.velocity / 255 * self.volume_factor)
+
+                if message.channel in phase_mapping.keys() and self.pan_enabled:  # Set phase
+                    phase = phase_mapping[message.channel]["value"]
+                else:
+                    phase = 64  # Middle phase
+
+                phase_value = 1 if phase == 64 else (2 if phase > 64 else 0)
+
+                self.loaded_messages.append({
+                    "type": message.type,
+                    "ch": message.channel,
+                    "note": message.note,
+                    "tick": int(tick_time),
+                    "v": volume_value,
+                    "program": program,
+                    "phase": phase_value,
+                })
+
+                message_count += 1
+
+            elif "prog" in message.type:
+                program_mapping[message.channel] = {"value": message.program, "time": tick_time}
+
+            elif "control" in message.type:
+
+                if message.control == 7:  # Volume change
+                    volume_mapping[message.channel] = {"value": message.value, "time": tick_time}
+
+                elif message.control == 121:  # No volume change
+                    volume_mapping[message.channel] = {"value": 1.0, "time": tick_time}  # Recover
+
+                elif message.control == 10:  # Phase change
+                    phase_mapping[message.channel] = {"value": message.value, "time": tick_time}
+
+            timestamp += message.time
+
+        self.loaded_messages = deque(sorted(self.loaded_messages, key=itemgetter("tick")))
+        logging.info(f"Load procedure finished. {len(self.loaded_messages)} event(s) loaded.")
+
+    def build_messages(self):
+        logging.debug(f'Building {len(self.loaded_messages)} event(s).')
+
+        self.built_function.clear()
+        self.tick_cache.clear()
+
+        y_index = 0
+
+        for tick_index in range(-self.blank_ticks, self.loaded_tick_count + 1):
+            x_shift = (tick_index - self.blank_ticks) * 3
+
+            self.built_function.append(f"forceload add ~{x_shift} ~-14 ~{x_shift + 2} ~14")
+
+            self._set_note_region(x_shift, y_index, 0)
+
+            while (messages := self.loaded_messages) and messages[0]["tick"] == tick_index:
+                self.tick_cache.append(self.loaded_messages.popleft())  # Deque object is used to improve performance
+
+            for i in self.tick_cache:
+                if i["type"] != "note_on":
+                    continue
+
+                if not self.regions:
+                    continue
+                    
+            self.built_function.append("forceload remove all")
+
+            if tick_index % 100 == 0:  # Show progress
+                logging.info(f"Built {tick_index} tick(s), {self.loaded_tick_count + 1} tick(s) in all.")
+
+        logging.info(f"Build procedure finished. {len(self.built_function)} command(s) built.")
+
+    def _set_note_region(self, x_shift, y_shift, z_shift):
+        self.built_function.extend([
+            f"fill ~{x_shift + 1} ~{y_shift} ~{z_shift - 14} ~{x_shift + 1} ~{y_shift} ~{z_shift + 14} {self.base_block}",
+            # Base in Z direction
+            f"fill ~{x_shift} ~{y_shift} ~{z_shift} ~{x_shift + 2} ~{y_shift} ~{z_shift} {self.path_block}",
+            # Path in X direction
+            f"setblock ~{x_shift} ~{y_shift + 1} ~{z_shift} minecraft:repeater[facing=west]",
+            # Repeater for 1 tick
+            f"setblock ~{x_shift + 2} ~{y_shift + 1} ~{z_shift} minecraft:redstone_wire[west=side,east=side]",
+            # The front redstone wire
+            f"fill ~{x_shift + 1} ~{y_shift + 1} ~{z_shift - 14} ~{x_shift + 1} ~{y_shift + 1} ~{z_shift + 14} minecraft:redstone_wire[north=side,south=side]",
+            # The left + right redstone wire
+            f"setblock ~{x_shift + 1} ~{y_shift + 1} ~{z_shift} minecraft:redstone_wire[north=side,south=side,west=side,east=side]",
+            # The center redstone wire
+        ])
+        self.regions.clear()
+        self.regions = [(j, 0, i) for j in (0, 2) for i in range(-14, 15)]
+
+    def _set_note_block(self, x_shift, y_shift, z_shift, inst, note):
+        assert inst in self.instruments, f"Instrument must be one of {self.instruments}."
+        assert note and 0 <= note <= 25, f"Invalid note number: {note}, must be 0 to 25."
+
+        note = 0 if inst in self.drumset else note  # Only 0 is allowed for drum.
+
+        self.built_function.append(
+            f"setblock ~{x_shift} ~{y_shift} ~{z_shift} minecraft:note_block[instrument={inst}, note={note}")
+
+
 if __name__ == '__main__':
-    from mid.plugins import tweaks, piano, title
-    from mid.frontends import Soma
+    # from mid.plugins import tweaks, piano, title
+    from mid.frontends import WorkerXG
 
     logging.basicConfig(level=logging.DEBUG)
 
-    generator = InGameGenerator(fp=r"D:\音乐\Unravel.mid", frontend=Soma(), plugins=[
-        piano.PianoRoll(
-            block_type="wool"
-        ),
-    ])
-    generator.auto_tick_rate()
-    generator.long_note_analysis()
+    generator = InGameGenerator(fp=r"D:\音乐\柯南.mid", frontend=WorkerXG())
 
-    # generator = RealTimeGenerator(fp=r"D:\音乐\Unravel.mid", plugins=[
+    # generator = RealTimeGenerator(fp=r"D:\音乐\Dual Existence.mid", plugins=[
     #     tweaks.FixedTime(
-    #         value=18000
+    #         value=6000
     #     ),
     #     tweaks.FixedRain(
     #         value="clear"
@@ -742,24 +955,28 @@ if __name__ == '__main__':
     #     piano.PianoRoll(
     #         block_type="wool"
     #     ),
+    #     piano.PianoRollFirework(),
     #     tweaks.ProgressBar(
     #         text="(。・∀・)ノ 进度条"
     #     ),
-    #     # title.MainTitle(
-    #     #     [
-    #     #         {
-    #     #             "text": "Unravel",
-    #     #             "color": "blue"
-    #     #         }
-    #     #     ], {
-    #     #         "text": "Dr.寻一"
-    #     #     }
-    #     # ),
-    #     tweaks.Viewport(
-    #         *tweaks.Viewport.PRESET2
+    #     title.MainTitle(
+    #         [
+    #             {
+    #                 "text": "Pre-release",
+    #                 "color": "blue"
+    #             }
+    #         ], {
+    #             "text": "By kworker"
+    #         }
+    #     ),
+    #     tweaks.PigPort(
+    #         *tweaks.PigPort.PRESET2
     #     ),
     # ])
+    # generator.wrap_length = float("inf")
     # generator.single_tick_limit = 2 ** 31 - 1
+
+    generator.auto_tick_rate()
     generator.load_messages()
     generator.build_messages()
     generator.write_datapack(r"D:\Minecraft\Client\.minecraft\versions\1.14.4-forge-28.1.56\saves\MCDI")

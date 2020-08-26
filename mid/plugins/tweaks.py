@@ -1,3 +1,4 @@
+from base.minecraft_types import *
 from mid.core import BaseGenerator
 from mid.plugins import Plugin
 
@@ -30,7 +31,7 @@ class FixedRain(Plugin):
 
 class Viewport(Plugin):
     __author__ = "kworker"
-    __doc__ = """Fixed or flexible viewport."""
+    __doc__ = """Fixed or initial viewport for players."""
 
     PRESET1 = [-16, 32, 64, 0, 16, 64]
     PRESET2 = [-24, 48, 64, 0, 24, 64]
@@ -42,24 +43,49 @@ class Viewport(Plugin):
                  z: "The initial relative z-axis of the viewport.",
                  fx: "The initial relative facing in x-axis of the viewport.",
                  fy: "The initial relative facing in y-axis of the viewport.",
-                 fz: "The initial relative facing in z-axis of the viewport.",
-                 fixed: "Fix the player to the position during the music." = True):
+                 fz: "The initial relative facing in z-axis of the viewport."):
         self.position = x, y, z
         self.facing = fx, fy, fz
-        self.fixed = fixed
 
     def exec(self, generator: BaseGenerator):
-        if self.fixed or generator.is_first_tick:  # Fixed viewport
-            x, y, z = self.position
-            fx, fy, fz = self.facing
-            y -= generator.y_axis_index
-            fy -= generator.y_axis_index
-            generator.add_tick_command(command=f"tp @a ~{x} ~{y} ~{z} facing ~{fx} ~{fy} ~{fz}")
+        x, y, z = self.position
+        fx, fy, fz = self.facing
+        y -= generator.y_axis_index
+        fy -= generator.y_axis_index
+        generator.add_tick_command(command=f"tp @a ~{x} ~{y} ~{z} facing ~{fx} ~{fy} ~{fz}")
 
-        elif generator.wrap_state:  # Just move forward
-            generator.add_tick_command(command=f"execute as @a at @s run tp @s ~{1 - generator.wrap_length} ~ ~")
-        else:
-            generator.add_tick_command(command=f"execute as @a at @s run tp @s ~1 ~ ~")
+
+class PigPort(Plugin):
+    __author__ = "kworker"
+    __doc__ = """Fixed or initial viewport riding pigs."""
+
+    PRESET1 = [-16, 32, 64, 0, 16, 64]
+    PRESET2 = [-24, 48, 64, 0, 24, 64]
+    PRESET3 = [24, 32, 1, 48, 8, 96]
+
+    def __init__(self,
+                 x: "The initial relative x-axis of the viewport.",
+                 y: "The initial relative y-axis of the viewport.",
+                 z: "The initial relative z-axis of the viewport.",
+                 fx: "The initial relative facing in x-axis of the viewport.",
+                 fy: "The initial relative facing in y-axis of the viewport.",
+                 fz: "The initial relative facing in z-axis of the viewport."):
+        self.position = x, y, z
+        self.facing = fx, fy, fz
+
+    def init(self, generator: BaseGenerator):
+        function = Function(generator.namespace, "summon_pig")
+        function.extend(
+            ["summon minecraft:pig ~-1 ~1 ~-1 {Saddle: 1b, NoGravity: 1b, NoAI: 1b, Silent: 1b, CustomName: '\"PP\"'}",
+             "effect give @e[type=minecraft:pig,name=PP] minecraft:invisibility 1000000 1 true"])
+        generator.initial_functions.append(function)
+
+    def exec(self, generator: BaseGenerator):
+        x, y, z = self.position
+        fx, fy, fz = self.facing
+        y -= generator.y_axis_index
+        fy -= generator.y_axis_index
+        generator.add_tick_command(command=f"tp @e[type=minecraft:pig,name=PP] ~{x} ~{y} ~{z}")
 
 
 class ProgressBar(Plugin):

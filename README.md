@@ -36,7 +36,8 @@ This app creates music by generating mcfunction(s), so only **Minecraft (Java Ed
     + MainTitle: Title at the beginning and the end of the music, useful for video making.
     + CopyTitle: Title throughout the music(e.g. copyright, author), useful for video making.
 + `tweaks.py`
-    + Viewport: Fixed or flexible viewport, useful for video making.
+    + Viewport: Fixed or initial viewport for players, useful for video making.
+    + PigPort: Fixed or initial viewport riding pigs, useful for video making.
     + ProgressBar: Simply shows a progress bar, useful for video making.
     + FixedTime: Allows you to have a fixed time while playing the music.
     + FixedRain: Allows you to have a fixed rain while playing the music.

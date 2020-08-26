@@ -1,5 +1,5 @@
 from base.minecraft_types import *
-from mid.core import BaseGenerator
+from mid.core import BaseCbGenerator
 from mid.plugins import Plugin
 
 
@@ -32,7 +32,7 @@ class MainTitle(Plugin):
         self.out_title = out_title if out_title is not None else self.DEFAULT_OUT_TITLE
         self.out_subtitle = out_subtitle if out_subtitle is not None else self.DEFAULT_OUT_SUBTITLE
 
-    def exec(self, generator: BaseGenerator):
+    def exec(self, generator: BaseCbGenerator):
         if generator.is_first_tick:  # At the beginning
             generator.add_tick_command(command=f"title @a title {json.dumps(self.in_title, ensure_ascii=False)}")
             generator.add_tick_command(command=f"title @a subtitle {json.dumps(self.in_subtitle, ensure_ascii=False)}")
@@ -49,5 +49,5 @@ class CopyTitle(Plugin):
                  text: "The copyright information throughout the music."):
         self.text = text
 
-    def exec(self, generator: BaseGenerator):
+    def exec(self, generator: BaseCbGenerator):
         generator.add_tick_command(command=f"title @a actionbar {json.dumps(self.text, ensure_ascii=False)}")

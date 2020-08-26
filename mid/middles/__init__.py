@@ -1,3 +1,5 @@
+from abc import abstractmethod
+
 from mid.core import Generator
 
 
@@ -7,11 +9,14 @@ class Middle(object):
 
     __author__ = "undefined"
 
-    def __init__(self):
-        pass
-
+    @abstractmethod
     def exec(self, generator: Generator) -> None:
         pass
 
+    @abstractmethod
     def init(self, generator: Generator) -> None:
+        pass
+
+    @abstractmethod
+    def dependency_connect(self, dependencies):
         pass

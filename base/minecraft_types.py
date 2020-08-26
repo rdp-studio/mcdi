@@ -61,6 +61,9 @@ class Function(list):
     def extend(self, commands) -> None:
         for i in commands: self.append(i)
 
+    def insert(self, __index, command):
+        super().insert(__index, f"{command}\n")
+
 
 class TagCompound(dict):
     def __str__(self):
