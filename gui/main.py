@@ -197,10 +197,14 @@ class MainWindow(HtmlGuiWindow):
 
         os.chdir(os.path.join(os.path.split(__file__)[0], ".."))
 
-        with open("gui/$ACODE", "rb") as file:
-            code = file.read().decode("utf8")
+        if os.path.exists("gui/$ACODE"):
+            with open("gui/$ACODE", "rb") as file:
+                code = file.read().decode("utf8")
+            run_in_new_thread(lambda: self.check_register(code, False))
 
-        run_in_new_thread(lambda: self.check_register(code, False))
+        else:
+            run_in_new_thread(lambda: self.check_register("N/A", False))
+
 
     def check_register(self, code, triggered):
         os.chdir(os.path.join(os.path.split(__file__)[0], ".."))
