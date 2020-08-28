@@ -25,14 +25,18 @@ class Server(object):
         logging.debug(f"Connecting to MIDI output device('{midi_device}'). That may take a little time.")
         self.port = mido.open_output(midi_device)
 
+        self.valid_info_count = 0
+        self.inval_info_count = 0
+
     def handler(self, data):
-        if matched := re.findall(r"\[\d{2}:\d{2}:\d{2}\sINFO\]:\s\[@\]\s!midi_out\s(.*)", data):
+        if matched := re.findall(r"\[\d{2}:\d{2}:\d{2}\sINFO\]:\s\[@\]\s!(.*)", data):
             message = pickle.loads(b64decode(matched[0]))
             time.sleep(message.time)
             self.port.send(message)
 
-        elif matched := re.findall(r"\[\d{2}:\d{2}:\d{2}\sINFO\]:\s\[@\]\s!func_exec\s(.*)", data):
-            NotImplemented
+            self.valid_info_count += 1
+        else:
+            self.inval_info_count += 1
 
     def mainloop(self):
         logging.info(f"Minecraft server MIDI agent('{__file__}') started.")
@@ -50,8 +54,7 @@ class Server(object):
         return self
 
     def __exit__(self, exc_type, exc_val, exc_tb):
-        logging.info("Minecraft MIDI server agent stopped. Stopping original server(closing the pipe).")
-        self.pipe.close()
+        pass
 
 
 if __name__ == '__main__':

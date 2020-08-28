@@ -234,7 +234,7 @@ class InGameGenerator(BaseCbGenerator):
         # Load variables
         self.prog_enabled = True
         self.gvol_enabled = True
-        self.pan_enabled = True
+        self.phase_enabled = True
         self.pitch_enabled = False
         self.volume_factor = 1
         self.pitch_factor = 2
@@ -391,7 +391,7 @@ class InGameGenerator(BaseCbGenerator):
 
                 volume_value = volume * message.velocity * self.volume_factor
 
-                if message.channel in phase_mapping.keys() and self.pan_enabled:  # Set phase
+                if message.channel in phase_mapping.keys() and self.phase_enabled:  # Set phase
                     phase_value = phase_mapping[message.channel]["value"]
                 else:
                     phase_value = 64  # Middle phase
@@ -682,7 +682,7 @@ class RealTimeGenerator(BaseCbGenerator):
             for i, message in enumerate(self.tick_cache):
                 if i > self.single_tick_limit and not (self.is_first_tick or self.is_last_tick):
                     break
-                self.add_tick_command(command=f"say !midi_out {message['msg']}")
+                self.add_tick_command(command=f"say !{message['msg']}")
 
             for plugin in self.plugins:  # Execute plugin
                 plugin.exec(self)
@@ -758,7 +758,7 @@ class NoteBlockGenerator(BaseGenerator):
         # Load variables
         self.prog_enabled = True
         self.gvol_enabled = True
-        self.pan_enabled = True
+        self.phase_enabled = True
         self.volume_factor = 1
 
         self.regions = []
@@ -839,7 +839,7 @@ class NoteBlockGenerator(BaseGenerator):
 
                 volume_value = round(volume * message.velocity / 255 * self.volume_factor)
 
-                if message.channel in phase_mapping.keys() and self.pan_enabled:  # Set phase
+                if message.channel in phase_mapping.keys() and self.phase_enabled:  # Set phase
                     phase = phase_mapping[message.channel]["value"]
                 else:
                     phase = 64  # Middle phase

@@ -1,14 +1,36 @@
 import importlib
+import multiprocessing
 import os
+import string
 import sys
+import threading
+import time
 import uuid
 import webbrowser
 
-from PyQt5.QtWidgets import QApplication, QFileDialog
+import mido
+import requests
+from PyQt5.QtWidgets import QFileDialog, QApplication
 
-from gui.core import HtmlGuiWindow
+from gui.core import HtmlGuiWindow, run_in_new_thread
+from mid.rtserver import Server
 
 sys.path.append("..")
+
+
+def midi_play(file, output=None):
+    port = mido.open_output(output)
+    midi = mido.MidiFile(file)
+
+    for message in midi.play():
+        port.send(message)
+
+    port.reset()
+    port.close()
+
+
+def get_mac_address():
+    return uuid.UUID(int=uuid.getnode()).hex[-12:]
 
 
 class OOBEWindow(HtmlGuiWindow):
@@ -121,6 +143,8 @@ class MainWindow(HtmlGuiWindow):
     BILIBILI_URL = "https://space.bilibili.com/21743452"
     FRIEND_URL = "https://rsm.cool/"
 
+    REGISTER_SERVER = "http://localhost:8000/check/"
+
     def __init__(self, *args, **kwargs):
         super(MainWindow, self).__init__(
             "main.html", *args, **kwargs
@@ -131,24 +155,156 @@ class MainWindow(HtmlGuiWindow):
         self("#about-l1").bind("onclick", lambda: webbrowser.open(self.GITHUB_URL))
         self("#about-l2").bind("onclick", lambda: webbrowser.open(self.BILIBILI_URL))
         self("#about-l3").bind("onclick", lambda: webbrowser.open(self.FRIEND_URL))
+
+        self("#rtsv-midi-test").bind("onclick", self.midi_test)
+        self("#rtsv-midi-stop").bind("onclick", self.midi_stop)
+
         self("#midi-path").bind("ondblclick", self.browse_midi_path)
         self("#plugin-chk-btn").bind("onclick", self.reload_plugin_cfg)
         self("#plugin-cfg-btn").bind("onclick", self.open_plugin_cfg)
         self("#middle-chk-btn").bind("onclick", self.reload_middle_cfg)
         self("#middle-cfg-btn").bind("onclick", self.open_middle_cfg)
+
+        self("#vpr-path").bind("ondblclick", self.browse_vpr_path)
+
+        self("#rtsv-midi-device").bind("onchange", self.update_midi_device)
+        self("#rtsv-start-btn").bind("onclick", self.run_rt_server)
+        self("#rtsv-stop-btn").bind("onclick", self.term_rt_server)
+
+        self("#func-ns").bind("onblur", self.validate_func_ns)
+        self("#mc-path").bind("ondblclick", self.browse_mc_path)
+        self("#mc-path").bind("onblur", self.validate_mc_path)
+
         self(".fixed-action-btn").bind("onclick", self.load_objects)
+        self(".load-objects-btn").bind("onclick", self.load_objects)
+
+        self("#activate-btn").bind(
+            "onclick", lambda: self.check_register(self("#register-code").value, True)
+        )
 
         self.plugins = {}
         self.middles = {}
 
         self.objects_loaded = False
+        self.midi_test_process = ...
+        self.rt_server_thread = ...
 
-        os.chdir("..")
+        self.midi_device_ok = False
+        self.server_path_ok = False
+        self.server_opening = threading.Event()
+
+        self.rt_server = ...
+
+        os.chdir(os.path.join(os.path.split(__file__)[0], ".."))
+
+        with open("gui/$ACODE", "rb") as file:
+            code = file.read().decode("utf8")
+
+        run_in_new_thread(lambda: self.check_register(code, False))
+
+    def check_register(self, code, triggered):
+        os.chdir(os.path.join(os.path.split(__file__)[0], ".."))
+
+        self("#activate-pend").show()
+        self("#activate-ok").hide()
+        self("#activate-fail").hide()
+        self(".activate").hide()
+
+        run_in_new_thread(lambda: self.execute_js(f'$("#register-code").text("{code}");'))
+        try:
+            data = requests.get(f"{self.REGISTER_SERVER}?mac={get_mac_address()}&key={code}")
+        except requests.exceptions.ConnectionError:
+            self.execute_js('M.toast({html: "无法连接到激活服务器。"});')
+            self("#activate-fail").show()
+            return self(".activate").show()
+
+        json_data = data.json()
+
+        self("#activate-pend").hide()
+        if json_data["errno"] == 0:
+            if triggered:
+                self.execute_js('M.toast({html: "激活成功。"});')
+            self("#activate-ok").show()
+            self(".activate").hide()
+
+        else:
+            if json_data["errno"] == 1 and triggered:
+                self.execute_js('M.toast({html: "该激活码不符合MCDI激活码格式。"});')
+            elif json_data["errno"] == 2 and triggered:
+                self.execute_js('M.toast({html: "该激活码未授权给对应的用户。"});')
+            elif json_data["errno"] == 3 and triggered:
+                self.execute_js('M.toast({html: "该激活码未于有效期限内使用。"});')
+            elif json_data["errno"] == 4 and triggered:
+                self.execute_js('M.toast({html: "该激活码未授权给对应的主机。"});')
+            elif triggered:
+                self.execute_js('M.toast({html: "激活服务器发生了内部错误。"});')
+
+            self("#activate-fail").show()
+            self(".activate").show()
+
+        with open("gui/$ACODE", "wb") as file:
+            file.write(code.encode("utf8"))
 
     def browse_midi_path(self):
-        self("#midi-path").value = QFileDialog.getOpenFileUrl(self, "浏览MIDI路径")[0].toString().strip("file:///")
+        self("#midi-path").value = QFileDialog.getOpenFileUrl(
+            self, "浏览MIDI路径", filter="MID 文件(*.mid)\0*.mid\0\0")[0].toString().strip("file:///")
+
+    def browse_vpr_path(self):
+        self("#vpr-path").value = QFileDialog.getOpenFileUrl(
+            self, "浏览VPR路径", filter="VPR 文件(*.vpr)\0*.vpr\0\0")[0].toString().strip("file:///")
+
+    def browse_mc_path(self):
+        value = self("#mc-path").value = QFileDialog.getExistingDirectory(self, "浏览.minecraft/ 路径")
+        self.validate_mc_path(value)
+
+    def validate_func_ns(self, value=None):
+        if value is None:
+            value = self("#func-ns").value
+
+        if not value.strip():
+            self.execute_js('M.toast({html: "函数命名空间不能为空字符串。"});')
+            return
+
+        for i in value:
+            if i not in string.digits + string.ascii_lowercase + "-_":
+                self.execute_js('M.toast({html: "函数命名空间只能包含数字、小写字母、中划线与下划线。"});')
+                return
+
+    def validate_mc_path(self, value=None):
+        if value is None:
+            value = self("#mc-path").value
+
+        self("#mc-ver").empty()
+
+        if not os.path.exists(value):
+            self.execute_js('M.toast({html: "您选择的游戏路径似乎不存在。"});')
+            self.execute_js(
+                '$("#mc-ver").append("<option value=\'\' disabled selected>- 键入或浏览一个合法的路径以开始配置 -</option>");')
+            return
+
+        if os.path.exists(os.path.join(value, "versions")) and (i := os.listdir(os.path.join(value, "versions"))):
+            self.execute_js('$("#mojang-launcher").removeAttr("disabled")')
+            self.execute_js('$("#mc-ver").removeAttr("disabled")')
+            for version in i:
+                self.execute_js(f'$("#mc-ver").append("<option value=\'{version}\'>{version}</option>");')
+            self.execute_js("M.AutoInit();")
+
+        elif os.path.exists(os.path.join(value, "world")) and os.path.exists(os.path.join(value, "server.properties")):
+            self("#mojang-launcher").setprop("disabled", "disabled")
+            self("#mc-ver").setprop("disabled", "disabled")
+            self.execute_js(
+                '$("#mc-ver").append("<option value=\'\' disabled selected>- 在使用服务端时不可选择Minecraft版本。 -</option>");')
+            self.execute_js("M.AutoInit();")
+
+        else:
+            self.execute_js('M.toast({html: "您选择的游戏路径似乎没有安装Minecraft（服务端或客户端）。"});')
+            self.execute_js(
+                '$("#mc-ver").append("<option value=\'\' disabled selected>- 键入或浏览一个合法的路径以开始配置 -</option>");')
+            return
 
     def load_objects(self):
+        os.chdir(os.path.join(os.path.split(__file__)[0], ".."))
+
         from mid.plugins import Plugin
         from mid.middles import Middle
 
@@ -192,8 +348,8 @@ class MainWindow(HtmlGuiWindow):
             for attr in dir(middle_pkg):
                 middle = getattr(middle_pkg, attr)
 
-                if isinstance(middle, type) and issubclass(middle, Plugin) and middle is not Middle:
-                    middle[pkg].append({
+                if isinstance(middle, type) and issubclass(middle, Middle) and middle is not Middle:
+                    middles[pkg].append({
                         "pkg": pkg, "name": middle.__name__, "author": middle.__author__, "doc": middle.__doc__
                     })
 
@@ -215,10 +371,24 @@ class MainWindow(HtmlGuiWindow):
                 self.execute_js(
                     f'$("#{random_id}").append("<option value=\'{pkg}.{middle["name"]}\'>中间件：<code>{middle["name"]}</code> by <i>{middle["author"]}</i>: <q>{middle["doc"]}</q></option>")')
 
-        self.execute_js("M.AutoInit();")
-
         self.plugins.update(plugins)
         self.middles.update(middles)
+
+        midi_ports = mido.get_output_names()
+
+        self("#rtsv-midi-device").empty()
+
+        if not midi_ports:
+            self.execute_js(
+                f'$("#rtsv-midi-device").append("option value="" disabled selected>- 在您的系统中找不到MIDI设备 -</option>")')
+
+        for port in midi_ports:
+            port_name = "\x20".join(port.split()[:-1])
+            self.execute_js(f'$("#rtsv-midi-device").append("<option value=\'{port}\'>{port_name}</option>")')
+
+        self.execute_js("M.AutoInit();")
+
+        self("#rtsv-midi-device").trigger("onchange")
 
         self(".preload").fade_out("slow")
 
@@ -337,6 +507,137 @@ class MainWindow(HtmlGuiWindow):
     def midi_run(self):
         plugins = self.execute_js('$("#plugin-list").val();')
         middles = self.execute_js('$("#middle-list").val();')
+
+    def midi_test(self):
+        os.chdir(os.path.join(os.path.split(__file__)[0], ".."))
+
+        port = self.execute_js('$("#rtsv-midi-device").val();')
+
+        self.midi_test_process = multiprocessing.Process(target=midi_play, args=("gui/static/assets/OMR.mid", port))
+        self.midi_test_process.daemon = True
+        self.midi_test_process.start()
+
+        self("#rtsv-midi-device").setprop("disabled", "disabled")
+        self("#rtsv-midi-stop").remove_class("disabled")
+        self("#rtsv-midi-test").add_class("disabled")
+        self.execute_js("M.AutoInit();")
+
+        self.midi_test_process.join()
+
+        self.execute_js('$("#rtsv-midi-device").removeAttr("disabled")')
+        self("#rtsv-midi-stop").add_class("disabled")
+        self("#rtsv-midi-test").remove_class("disabled")
+        self.execute_js("M.AutoInit();")
+
+    def midi_stop(self):
+        self.midi_test_process.terminate()
+
+        self.execute_js('$("#rtsv-midi-device").removeAttr("disabled")')
+        self("#rtsv-midi-stop").add_class("disabled")
+        self("#rtsv-midi-test").remove_class("disabled")
+        self.execute_js("M.AutoInit();")
+
+    def check_rtsv_state(self):
+        if self.midi_device_ok and self.server_path_ok:
+            self("#rtsv-run-set").show()
+            self("#server-status-tips").hide()
+        else:
+            self("#rtsv-run-set").hide()
+            self("#server-status-tips").show()
+
+    def check_rtsv_count(self):
+        while self.server_opening.is_set():
+            x, y = self.rt_server.valid_info_count, self.rt_server.inval_info_count
+            self("#rtsv-midi-recv").inner_text = x + y
+            self("#rtsv-midi-valid").inner_text, self("#rtsv-midi-inval").inner_text = x, y
+
+            time.sleep(.5)
+
+    def update_midi_device(self):
+        port = self.execute_js('$("#rtsv-midi-device").val();')
+        if port:
+            self("#midi-device-text").inner_text = port
+            self.server_path_ok = True
+            self.midi_device_ok = True
+        else:
+            self("#midi-device-text").inner_text = "N/A"
+            self.midi_device_ok = False
+
+        self.check_rtsv_state()
+
+    def run_rt_server(self):
+        if isinstance(self.midi_test_process, multiprocessing.Process) and self.midi_test_process.is_alive():
+            self.midi_test_process.terminate()
+
+        self("#rtsv-start-btn").fade_out()
+        self("#rtsv-midi-pipe").remove_class("red-text")
+        self("#rtsv-midi-pipe").inner_text = "连接中"
+
+        try:
+            server = self("#server-path-text").inner_text
+            port = self("#midi-device-text").inner_text
+
+            self.rt_server = Server(r"D:\Minecraft\Server\paper-243.jar", port)
+            self.rt_server_thread = threading.Thread(target=self.rt_server.mainloop)
+            self.rt_server_thread.setDaemon(True)
+            self.rt_server_thread.start()
+
+            self.server_opening.set()
+            server_daemon_thread = threading.Thread(target=self.check_rtsv_count)
+            server_daemon_thread.setDaemon(True)
+            server_daemon_thread.start()
+
+        except Exception:
+            self("#rtsv-midi-pipe").add_class("red-text")
+            self("#rtsv-midi-pipe").inner_text = "连接失败"
+
+            self("#rtsv-start-btn").fade_in()
+            return
+
+        self("#rtsv-midi-pipe").add_class("green-text")
+        self("#rtsv-midi-pipe").inner_text = "已连接"
+
+        self("#rtsv-stop-btn").fade_in()
+        self("#mc-path").setprop("disabled", "disabled")
+        self("#rtsv-midi-device").setprop("disabled", "disabled")
+        self("#rtsv-midi-test").add_class("disabled")
+        self.execute_js("M.AutoInit();")
+
+    def term_rt_server(self, force=False):
+        if isinstance(self.midi_test_process, multiprocessing.Process) and self.midi_test_process.is_alive():
+            self.midi_test_process.terminate()
+
+        self("#rtsv-stop-btn").fade_out()
+        self("#rtsv-midi-pipe").remove_class("green-text")
+        self("#rtsv-midi-pipe").inner_text = "断开中"
+
+        try:
+            self.rt_server.port.panic()
+            self.rt_server.port.reset()
+            self.rt_server.port.close()
+            if os.name == "nt":
+                os.system(f'taskkill.exe /F /T /pid:{self.rt_server.pipe._proc.pid}')
+            else:
+                from signal import SIGTERM, SIGKILL
+
+                os.kill(self.rt_server.pipe._proc.pid, SIGKILL if force else SIGTERM)
+
+            self.server_opening.clear()
+        except Exception:
+            self("#rtsv-midi-pipe").add_class("red-text")
+            self("#rtsv-midi-pipe").inner_text = "断开失败"
+
+            self("#rtsv-stop-btn").fade_in()
+            return
+
+        self("#rtsv-midi-pipe").add_class("red-text")
+        self("#rtsv-midi-pipe").inner_text = "已断开"
+
+        self("#rtsv-start-btn").fade_in()
+        self.execute_js('$("#mc-path").removeAttr("disabled")')
+        self.execute_js('$("#rtsv-midi-device").removeAttr("disabled")')
+        self("#rtsv-midi-test").remove_class("disabled")
+        self.execute_js("M.AutoInit();")
 
 
 if __name__ == '__main__':

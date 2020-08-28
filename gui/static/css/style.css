@@ -122,21 +122,21 @@ pre#license {
 
 .preload .overlay {
 	position: absolute;
-	z-index: 65535;
+	z-index: 65534;
 	top: 0;
 	left: 0;
 
 	height: 100%;
 	width: 100%;
 
-    background-color: #0000007f;
+    background: #0000007f;
     backdrop-filter: blur(.25rem);
 }
 
 .preload .body {
     position: absolute;
     display: block;
-	z-index: 65536;
+	z-index: 65535;
 	top: 50%;
 	left: 50%;
 
@@ -145,4 +145,16 @@ pre#license {
     text-align: center;
 
 	transform: translate(-50%, -50%);
+}
+
+.activate {
+    position: fixed;
+    bottom: 2rem;
+    right: 2rem;
+    max-width: 16em;
+    z-index: 65536;
+
+    opacity: .8;
+
+    pointer-events: none;
 }
