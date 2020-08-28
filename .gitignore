@@ -9,3 +9,5 @@ dist/
 *.spec
 # GUI
 config.json
+config.yaml
+$ACODE
