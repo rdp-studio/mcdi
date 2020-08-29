@@ -8,7 +8,7 @@ class Position(object):
 
 class RelativePosition(object):
     def __init__(self, x=0, y=0, z=0):
-        self.position = f"~{x}", f"~{y}", f"~{z}"
+        self.position = f"~{x:.6f}", f"~{y:.6f}", f"~{z:.6f}"
 
     def __str__(self):
         return "\x20".join(self.position)
@@ -16,7 +16,7 @@ class RelativePosition(object):
 
 class LocalPosition(object):
     def __init__(self, x=0, y=0, z=0):
-        self.position = f"^{x}", f"^{y}", f"^{z}"
+        self.position = f"^{x:.6f}", f"^{y:.6f}", f"^{z:.6f}"
 
     def __str__(self):
         return "\x20".join(self.position)

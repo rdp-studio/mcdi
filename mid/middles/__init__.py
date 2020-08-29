@@ -1,6 +1,6 @@
 from abc import abstractmethod
 
-from mid.core import Generator
+from mid.core import InGameGenerator
 
 
 class Middle(object):
@@ -10,11 +10,11 @@ class Middle(object):
     __author__ = "undefined"
 
     @abstractmethod
-    def exec(self, generator: Generator) -> None:
+    def exec(self, generator: InGameGenerator) -> None:
         pass
 
     @abstractmethod
-    def init(self, generator: Generator) -> None:
+    def init(self, generator: InGameGenerator) -> None:
         pass
 
     @abstractmethod

@@ -1,7 +1,7 @@
 from math import inf
 
 from base.minecraft_types import *
-from mid.core import BaseCbGenerator, float_range
+from mid.core import BaseCbGenerator
 from mid.plugins import Plugin
 
 
@@ -43,17 +43,24 @@ class PianoRoll(Plugin):
 
             y_layer = self.layered * on_note["ch"]
 
+            if on_note["linked"] is not None:
+                duration = on_note["linked"][0] - on_note["linked"][1]
+            else:
+                duration = 0
+
             if self.reverse_wrap:
                 wrap_shift = on_note["note"] - self.wrap_shift - 128  # Setblock to negative z
-                function.extend([f"forceload remove ~{on_note['tick'] - 1} ~ ~{on_note['tick'] - 1} ~-128",
-                                 f"forceload add ~{on_note['tick']} ~ ~{on_note['tick']} ~-128"])
-                setblock_cmd = f"setblock ~{on_note['tick']} ~{self.axis_y_shift + y_layer} ~{wrap_shift} minecraft:{block_name} replace"
+                function.extend(
+                    [f"forceload remove all", f"forceload add ~{on_note['tick']} ~ ~{on_note['tick'] + duration} ~-128"]
+                )
+                setblock_cmd = f"fill ~{on_note['tick']} ~{self.axis_y_shift + y_layer} ~{wrap_shift} ~{on_note['tick'] + duration} ~{self.axis_y_shift + y_layer} ~{wrap_shift} minecraft:{block_name} replace"
 
             else:
                 wrap_shift = on_note["note"] + self.wrap_shift  # # Setblock to positive z(default)
-                function.extend([f"forceload remove ~{on_note['tick'] - 1} ~ ~{on_note['tick'] - 1} ~128",
-                                 f"forceload add ~{on_note['tick']} ~ ~{on_note['tick']} ~128"])
-                setblock_cmd = f"setblock ~{on_note['tick']} ~{self.axis_y_shift + y_layer} ~{wrap_shift} minecraft:{block_name} replace"
+                function.extend(
+                    [f"forceload remove all", f"forceload add ~{on_note['tick']} ~ ~{on_note['tick'] + duration} ~128"]
+                )
+                setblock_cmd = f"fill ~{on_note['tick']} ~{self.axis_y_shift + y_layer} ~{wrap_shift} ~{on_note['tick'] + duration} ~{self.axis_y_shift + y_layer} ~{wrap_shift} minecraft:{block_name} replace"
 
             function.append(setblock_cmd)
 

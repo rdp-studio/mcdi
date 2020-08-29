@@ -1,7 +1,20 @@
+import json
 import logging
-from math import floor
+import os
+from math import floor, radians, sin, cos
 
 from base.command_types import *
+from mid.core import InGameGenerator
+
+
+def get_phase_point(t, r):
+    i = radians(abs(t) + 90)
+    rx, ry = cos(i), sin(i)
+    dx, dy = rx * r, ry * r
+
+    if t < 0:
+        return dx, dy
+    return -dx, dy
 
 
 class Frontend(object):
@@ -20,43 +33,103 @@ class WorkerXG(Frontend):
 
     __author__ = "kworker"
 
-    def __init__(self,
-                 use_stop: "Use the stopsound command" = True,
-                 use_drum: "Use the MIDI drum channel" = True,
-                 stop_drum: "Use stopsound for drum" = True):
+    def __init__(self, parent: InGameGenerator,
+                 use_stop: "Use the stopsound command." = True,
+                 use_drum: "Use the MIDI drum channel." = True,
+                 stop_drum: "Use stopsound for drum." = True,
+                 drum_stop_delay: "How long to delay stopsound for drum." = 40,
+                 use_old_context: "Use old context when fading a note," = True):
 
         super(WorkerXG, self).__init__()
+        self.parent = parent
         self.use_stop = use_stop
         self.use_drum = use_drum
         self.stop_drum = stop_drum
+        self.drum_stop_delay = drum_stop_delay
+        self.use_old_context = use_old_context
 
-    def get_play_cmd(self, ch, program, note, v, phase, pitch, **kwargs):
+        with open(os.path.join(os.path.split(__file__)[0], "workerxg.json")) as file:
+            self.mapping = json.load(file)
+
+    def get_play_cmd(self, ch, note, program, v, phase, pitch, **kwargs):
         if not self.use_drum and ch == 9:
             return None
 
-        abs_phase = (phase - 64) / 32  # Convert [0 <= int <= 127] to [-2 <= float <= 2].
+        x, y = get_phase_point((phase - 64) / 64 * 90, 2)
 
         return Execute(
             PlaySound(
                 f"xg.{program - 1 if program > 0 else 'drum'}.{note}",
                 channel="voice", for_="@s",
-                position=LocalPosition(-abs_phase, 0, 2 - abs(abs_phase)),
+                position=LocalPosition(x, 0, y),
                 velocity=v / 127, pitch=pitch,
             ),
             as_="@a", at="@s"
         )
 
-    def get_stop_cmd(self, ch, program, note, **kwargs):
+    def get_stop_cmd(self, ch, note, program, phase, linked, **kwargs):
         if not self.use_stop or (not self.use_drum and ch == 9) or (not self.stop_drum and ch == 9):
             return None
 
-        return Execute(
-            StopSound(
-                f"xg.{program - 1 if program > 0 else 'drum'}.{note}",
-                channel="voice", for_="@s",
-            ),
-            as_="@a", at="@s"
-        )
+        if linked is not None:
+            duration = round((linked[0] - linked[1]) / self.parent.tick_rate * self.parent.tick_scale * 20)
+
+            if 1 <= duration <= 160 and program != 0:
+                if self.use_old_context:
+                    program_mapping, volume_mapping, phase_mapping, pitch_mapping = linked[2].context
+
+                    if linked[2].channel in volume_mapping.keys() and self.parent.gvol_enabled:  # Set volume
+                        volume = volume_mapping[linked[2].channel]["value"] / 127
+                    else:
+                        volume = 1  # Max volume
+
+                    volume_value = volume * linked[2].velocity * self.parent.volume_factor
+
+                    if linked[2].channel in pitch_mapping.keys() and self.parent.pitch_enabled:  # Set pitch
+                        pitch = pitch_mapping[linked[2].channel]["value"]
+                    else:
+                        pitch = self.parent.pitch_base  # No pitch
+
+                    pitch_value = 2 ** ((pitch / self.parent.pitch_base - 1) * self.parent.pitch_factor / 12)
+
+                    if linked[2].channel in phase_mapping.keys() and self.parent.phase_enabled:  # Set phase
+                        phase = phase_mapping[linked[2].channel]["value"]
+                    else:
+                        phase = 64  # Middle phase
+
+                else:
+                    volume_value, pitch_value = 127, 1
+
+                v = self.mapping[program - 1][note][duration - 1]
+                x, y = get_phase_point((phase - 64) / 64 * 90, 2)
+                abv = v * volume_value / 127
+
+                self.parent.schedule(0, Execute(
+                    PlaySound(
+                        f"xg.f{program - 1}.{note}",
+                        channel="voice", for_="@s",
+                        position=LocalPosition(x, 0, y),
+                        velocity=abv, pitch=pitch_value,
+                    ),
+                    as_="@a", at="@s"
+                ))
+
+        if program > 0:
+            return Execute(
+                StopSound(
+                    f"xg.{program - 1}.{note}",
+                    channel="voice", for_="@s",
+                ),
+                as_="@a", at="@s"
+            )
+        else:
+            self.parent.schedule(self.drum_stop_delay, Execute(
+                StopSound(
+                    f"xg.drum.{note}",
+                    channel="voice", for_="@s",
+                ),
+                as_="@a", at="@s"
+            ))
 
 
 class Soma(Frontend):
@@ -71,35 +144,41 @@ class Soma(Frontend):
         96, 97, 98, 99, 100, 101, 102, 103, 104, 105, 106, 107, 110, 111, 112, 120
     )
 
-    def __init__(self,
-                 use_stop: "Use the stopsound command" = True,
-                 use_drum: "Use the MIDI drum channel" = True,
-                 stop_drum: "Use stopsound for drum" = True):
+    def __init__(self, parent: InGameGenerator,
+                 use_stop: "Use the stopsound command." = True,
+                 use_drum: "Use the MIDI drum channel." = True,
+                 stop_drum: "Use stopsound for drum." = True,
+                 threshold: "The threshold for long notes." = 40):
 
         super(Soma, self).__init__()
+        self.parent = parent
         self.use_stop = use_stop
         self.use_drum = use_drum
         self.stop_drum = stop_drum
+        self.threshold = threshold
 
-    def get_play_cmd(self, ch, program, note, v, phase, pitch, long, **kwargs):
+    def get_play_cmd(self, ch, note, program, v, phase, pitch, linked, **kwargs):
         if not self.use_drum and ch == 9:
             return None
 
-        abs_phase = (phase - 64) / 32  # Convert [0 <= int <= 127] to [-2 <= float <= 2].
+        long = linked[0] - linked[1] > self.threshold if linked is not None else False
+        x, y = get_phase_point((phase - 64) / 64 * 90, 2)
 
         return Execute(
             PlaySound(
                 f"{str(program) + 'c' * (program in self.LONG_SAFE and long)}.{note}",
                 channel="voice", for_="@s",
-                position=LocalPosition(-abs_phase, 0, 2 - abs(abs_phase)),
+                position=LocalPosition(x, 0, y),
                 velocity=v / 127, pitch=pitch,
             ),
             as_="@a", at="@s"
         )
 
-    def get_stop_cmd(self, ch, program, note, long, **kwargs):
+    def get_stop_cmd(self, ch, note, program, linked, **kwargs):
         if not self.use_stop or (not self.use_drum and ch == 9) or (not self.stop_drum and ch == 9):
             return None
+
+        long = linked[0] - linked[1] > self.threshold if linked is not None else False
 
         return Execute(
             StopSound(
@@ -126,18 +205,19 @@ class Vanilla(Frontend):
         "didgeridoo": 1, "bit": 3, "banjo": 3, "pling": 3, "harp": 3
     }
 
-    def __init__(self,
-                 f1_inst: "Instrument to play F#1-F#2 with" = "bass",
-                 f2_inst: "Instrument to play F#2-F#3 with" = "bass",
-                 f3_inst: "Instrument to play F#3-F#4 with" = "harp",
-                 f4_inst: "Instrument to play F#4-F#5 with" = "harp",
-                 f5_inst: "Instrument to play F#5-F#6 with" = "bell",
-                 f6_inst: "Instrument to play F#6-F#7 with" = "bell",
-                 use_stop: "Use the stopsound command" = True,
-                 use_drum: "Use the MIDI drum channel" = False,
-                 stop_drum: "Use stopsound for drum" = True):
+    def __init__(self, parent: InGameGenerator,
+                 f1_inst: "Instrument to play F#1-F#2 with." = "bass",
+                 f2_inst: "Instrument to play F#2-F#3 with." = "bass",
+                 f3_inst: "Instrument to play F#3-F#4 with." = "harp",
+                 f4_inst: "Instrument to play F#4-F#5 with." = "harp",
+                 f5_inst: "Instrument to play F#5-F#6 with." = "bell",
+                 f6_inst: "Instrument to play F#6-F#7 with." = "bell",
+                 use_stop: "Use the stopsound command." = True,
+                 use_drum: "Use the MIDI drum channel." = True,
+                 stop_drum: "Use stopsound for drum." = True):
 
         super(Vanilla, self).__init__()
+        self.parent = parent
         self.insts = f1_inst, f2_inst, f3_inst, f4_inst, f5_inst, f6_inst
         self.use_stop = use_stop
         self.use_drum = use_drum
@@ -157,7 +237,7 @@ class Vanilla(Frontend):
             logging.warning(f"On note {note} at channel{ch} out of range! ")
             return None
 
-        abs_phase = (phase - 64) / 32  # Convert [0 <= int <= 127] to [-2 <= float <= 2].
+        x, y = get_phase_point((phase - 64) / 64 * 90, 2)
 
         inst_index = floor(((note - 18) / 12) if note != 90 else 5)  # Get the instrument to use(in range)
         base_pitch = self.insts_pitch[(inst := self.insts[inst_index])]  # Get the pitch for the instrument
@@ -166,7 +246,7 @@ class Vanilla(Frontend):
             PlaySound(
                 f"minecraft:block.note_block.{inst}",
                 channel="voice", for_="@s",
-                position=LocalPosition(-abs_phase, 0, 2 - abs(abs_phase)),
+                position=LocalPosition(x, 0, y),
                 velocity=v / 127, pitch=self.pitches[note - base_pitch * 18],
             ),
             as_="@a", at="@s"
@@ -197,37 +277,38 @@ class Mcrg(Frontend):
 
     __author__ = "HydrogenC"
 
-    def __init__(self,
-                 pack_name: "Name of the target resourcepack" = "mcrg",
-                 inst_name: "Name of the target instrument" = "inst",
-                 use_stop: "Use the stopsound command" = True,
-                 use_drum: "Use the MIDI drum channel" = False,
-                 stop_drum: "Use stopsound for drum" = True):
+    def __init__(self, parent: InGameGenerator,
+                 pack_name: "Name of the target namespace." = "mcrg",
+                 inst_name: "Name of the target instrument." = "inst",
+                 use_stop: "Use the stopsound command." = True,
+                 use_drum: "Use the MIDI drum channel." = True,
+                 stop_drum: "Use stopsound for drum." = True):
 
         super(Mcrg, self).__init__()
+        self.parent = parent
         self.pack_name = pack_name
         self.inst_name = inst_name
         self.use_stop = use_stop
         self.use_drum = use_drum
         self.stop_drum = stop_drum
 
-    def get_play_cmd(self, ch, program, note, v, phase, pitch, **kwargs):
+    def get_play_cmd(self, ch, note, program, v, phase, pitch, **kwargs):
         if not self.use_drum and ch == 9:
             return None
 
-        abs_phase = (phase - 64) / 32  # Convert [0 <= int <= 127] to [-2 <= float <= 2].
+        x, y = get_phase_point((phase - 64) / 64 * 90, 2)
 
         return Execute(
             PlaySound(
                 f"{self.pack_name}.{self.inst_name}.{note}",
                 channel="voice", for_="@s",
-                position=LocalPosition(-abs_phase, 0, 2 - abs(abs_phase)),
+                position=LocalPosition(x, 0, y),
                 velocity=v / 127, pitch=pitch,
             ),
             as_="@a", at="@s"
         )
 
-    def get_stop_cmd(self, ch, program, note, **kwargs):
+    def get_stop_cmd(self, ch, note, program, **kwargs):
         if not self.use_stop or (not self.use_drum and ch == 9) or (not self.stop_drum and ch == 9):
             return None
 

@@ -1,5 +1,5 @@
 from base.minecraft_types import *
-from mid.core import BaseGenerator
+from mid.core import BaseCbGenerator
 from mid.plugins import Plugin
 
 
@@ -11,7 +11,7 @@ class FixedTime(Plugin):
                  value: "The time(in tick) to fix."):
         self.value = value
 
-    def init(self, generator: BaseGenerator):
+    def init(self, generator: BaseCbGenerator):
         generator.built_function.append("gamerule doDaylightCycle false")
         generator.built_function.append(f"time set {self.value}")
 
@@ -24,7 +24,7 @@ class FixedRain(Plugin):
                  value: "The weather name to fix."):
         self.value = value
 
-    def init(self, generator: BaseGenerator):
+    def init(self, generator: BaseCbGenerator):
         generator.built_function.append("gamerule doWeatherCycle false")
         generator.built_function.append(f"weather {self.value}")
 
@@ -47,7 +47,7 @@ class Viewport(Plugin):
         self.position = x, y, z
         self.facing = fx, fy, fz
 
-    def exec(self, generator: BaseGenerator):
+    def exec(self, generator: BaseCbGenerator):
         x, y, z = self.position
         fx, fy, fz = self.facing
         y -= generator.y_axis_index
@@ -73,14 +73,14 @@ class PigPort(Plugin):
         self.position = x, y, z
         self.facing = fx, fy, fz
 
-    def init(self, generator: BaseGenerator):
+    def init(self, generator: BaseCbGenerator):
         function = Function(generator.namespace, "summon_pig")
         function.extend(
             ["summon minecraft:pig ~-1 ~1 ~-1 {Saddle: 1b, NoGravity: 1b, NoAI: 1b, Silent: 1b, CustomName: '\"PP\"'}",
              "effect give @e[type=minecraft:pig,name=PP] minecraft:invisibility 1000000 1 true"])
         generator.initial_functions.append(function)
 
-    def exec(self, generator: BaseGenerator):
+    def exec(self, generator: BaseCbGenerator):
         x, y, z = self.position
         fx, fy, fz = self.facing
         y -= generator.y_axis_index
@@ -100,7 +100,7 @@ class ProgressBar(Plugin):
         self.text = text
         self.color = color
 
-    def exec(self, generator: BaseGenerator):
+    def exec(self, generator: BaseCbGenerator):
         if generator.is_first_tick:
             generator.add_tick_command(f'bossbar add {self.pk} {{"text": "{self.text}"}}')
             generator.add_tick_command(command=f"bossbar set {self.pk} color {self.color}")

@@ -229,7 +229,7 @@ class InGameGenerator(BaseCbGenerator):
 
         super(InGameGenerator, self).__init__(*args, **kwargs)
 
-        self.frontend = frontend
+        self.frontend = frontend(self)
 
         # Load variables
         self.prog_enabled = True
@@ -240,14 +240,13 @@ class InGameGenerator(BaseCbGenerator):
         self.pitch_factor = 2
         self.pitch_base = 8192
 
-        self.long_flags = []
-        self.half_flags = []
+        self.note_links = {}
 
-    def auto_tick_rate(self, duration=None, tolerance=5, step=.025, base=20, strict=False):
+    def auto_tick_rate(self, duration=None, tolerance=5, step=.01, base=20, strict=False):
         if not duration:  # Calculate the length myself
             duration = self.length
 
-        logging.info("Calculating maximum and minimum tick rate.")
+        logging.info("Try finding the best tick rate.")
 
         max_allow = base + base * (tolerance / duration)  # Max acceptable tick rate
         min_allow = base - base * (tolerance / duration)  # Min acceptable tick rate
@@ -275,71 +274,66 @@ class InGameGenerator(BaseCbGenerator):
 
         self.tick_rate = best_tick_rate
 
-        logging.info(f"Tick rate calculation finished({best_tick_rate}).")
+        logging.info(f"The best tick rate found: {best_tick_rate}.")
 
-    def long_note_analysis(self, threshold=40, ignore=()):
-        logging.debug("Analysing long notes.")
+    def make_note_links(self):
+        logging.info("Making on-off note links.")
 
-        # Clear analysed items
-        self.long_flags.clear()
-
+        self.note_links.clear()
         sustain_msgs, timestamp = [], 0
 
-        for index, message in enumerate(self):  # Iterate over messages
-            timestamp += message.time * self.tick_rate
+        program_mapping, volume_mapping, phase_mapping, pitch_mapping = {}, {}, {}, {}
+
+        for index, message in enumerate(self):
+            timestamp += message.time * self.tick_rate / self.tick_scale
 
             if message.type == "note_on":
                 vars(message)["on_time"] = timestamp
                 vars(message)["ch_note"] = (
                     message.channel, message.note
                 )
-                vars(message)["long_index"] = index
+                vars(message)["link_index"] = index
+                vars(message)["context"] = program_mapping, volume_mapping, phase_mapping, pitch_mapping
 
                 sustain_msgs.append(message)
 
             elif message.type == "note_off":
-                old_msg = next(filter(lambda p: p.ch_note == (message.channel, message.note), sustain_msgs))
+                try:
+                    old_msg = next(filter(lambda p: p.ch_note == (message.channel, message.note), sustain_msgs))
+                except StopIteration:
+                    logging.warning(f"Bad MIDI file: off-note#{index} does not match on-note!")
+                    continue
 
-                if (threshold < timestamp - old_msg.on_time) and (old_msg.channel not in (9, *ignore)):
-                    old_i = old_msg.long_index
-                    self.long_flags.append(old_i)
-                    self.long_flags.append(index)
-
-                sustain_msgs.remove(old_msg)
-
-        logging.info("Long notes analysis procedure finished.")
-
-    def half_note_analysis(self, minimum=.33, maximum=.67):
-        logging.debug("Analysing half notes.")
-
-        # Clear analysed items
-        self.half_flags.clear()
-
-        sustain_msgs, timestamp = [], 0
-
-        for index, message in enumerate(self):  # Iterate over messages
-            timestamp += message.time * self.tick_rate
-
-            if message.type == "note_on":
-                vars(message)["on_time"] = timestamp
-                vars(message)["ch_note"] = (
-                    message.channel, message.note
+                old_index = i = old_msg.link_index
+                self.note_links[old_index] = (
+                    timestamp, old_msg.on_time, message
                 )
-                vars(message)["half_index"] = index
-
-                sustain_msgs.append(message)
-
-            elif message.type == "note_off":
-                old_msg = next(filter(lambda p: p.ch_note == (message.channel, message.note), sustain_msgs))
-
-                if minimum < abs(round(float_ := old_msg.on_time * self.tick_rate) - float_) < maximum:
-                    old_i = old_msg.half_index
-                    self.half_flags.append(old_i)
-                    self.half_flags.append(index)
+                self.note_links[index] = (
+                    timestamp, old_msg.on_time, old_msg
+                )
 
                 sustain_msgs.remove(old_msg)
 
-        logging.info("Half notes analysis procedure finished.")
+                logging.debug(f"Linked on-note #{i} to off-note #{index}.")
+
+            elif "prog" in message.type:
+                program_mapping[message.channel] = {"value": message.program, "time": timestamp}
+
+            elif "control" in message.type:
+
+                if message.control == 7:  # Volume change
+                    volume_mapping[message.channel] = {"value": message.value, "time": timestamp}
+
+                elif message.control == 121:  # No volume change
+                    volume_mapping[message.channel] = {"value": 1.0, "time": timestamp}  # Recover
+
+                elif message.control == 10:  # Phase change
+                    phase_mapping[message.channel] = {"value": message.value, "time": timestamp}
+
+            elif "pitch" in message.type:  # Pitch change
+                pitch_mapping[message.channel] = {"value": message.pitch, "time": timestamp}
+
+        logging.info(f"{len(self.note_links)} on-off note links made.")
 
     def load_messages(self):
         logging.debug("Loading message(s) from the MIDI file.")
@@ -391,11 +385,6 @@ class InGameGenerator(BaseCbGenerator):
 
                 volume_value = volume * message.velocity * self.volume_factor
 
-                if message.channel in phase_mapping.keys() and self.phase_enabled:  # Set phase
-                    phase_value = phase_mapping[message.channel]["value"]
-                else:
-                    phase_value = 64  # Middle phase
-
                 if message.channel in pitch_mapping.keys() and self.pitch_enabled:  # Set pitch
                     pitch = pitch_mapping[message.channel]["value"]
                 else:
@@ -403,22 +392,23 @@ class InGameGenerator(BaseCbGenerator):
 
                 pitch_value = 2 ** ((pitch / self.pitch_base - 1) * self.pitch_factor / 12)
 
-                long = index in self.long_flags
-                half = index in self.half_flags
-                if message.type == "note_off":
-                    tick_time += half  # Bool to int
+                if message.channel in phase_mapping.keys() and self.phase_enabled:  # Set phase
+                    phase = phase_mapping[message.channel]["value"]
+                else:
+                    phase = 64  # Middle phase
+
+                linked = self.note_links[index] if index in self.note_links.keys() else None
 
                 self.loaded_messages.append({
                     "type": message.type,
                     "ch": message.channel,
                     "note": message.note,
-                    "tick": int(tick_time),
-                    "v": volume_value,
+                    "tick": tick_time,
                     "program": program,
-                    "phase": phase_value,
+                    "v": volume_value,
                     "pitch": pitch_value,
-                    "half": half,
-                    "long": long  # Convert message to dict object, for **kwargs.
+                    "phase": phase,
+                    "linked": linked,
                 })
 
                 message_count += 1
@@ -566,7 +556,7 @@ class InGameGenerator(BaseCbGenerator):
 
 
 class RealTimeGenerator(BaseCbGenerator):
-    IN_GAME_COMPATIBLE = {"v": 255, "program": 0, "phase": 64, "pitch": 1, "half": False, "long": False, "rt": True}
+    IN_GAME_COMPATIBLE = {"program": 0, "v": 127, "pitch": 1, "phase": 64, "linked": None}
 
     def __init__(self, plugins=None, *args, **kwargs):
         if plugins is None:
@@ -744,46 +734,43 @@ class RealTimeGenerator(BaseCbGenerator):
 
 
 if __name__ == '__main__':
-    # from mid.plugins import tweaks, piano, title
+    from mid.plugins import tweaks, piano, title
     from mid.frontends import WorkerXG
 
     logging.basicConfig(level=logging.DEBUG)
 
-    generator = InGameGenerator(fp=r"D:\音乐\柯南.mid", frontend=WorkerXG())
-
-    # generator = RealTimeGenerator(fp=r"D:\音乐\Dual Existence.mid", plugins=[
-    #     tweaks.FixedTime(
-    #         value=6000
-    #     ),
-    #     tweaks.FixedRain(
-    #         value="clear"
-    #     ),
-    #     piano.PianoRoll(
-    #         block_type="wool"
-    #     ),
-    #     piano.PianoRollFirework(),
-    #     tweaks.ProgressBar(
-    #         text="(。・∀・)ノ 进度条"
-    #     ),
-    #     title.MainTitle(
-    #         [
-    #             {
-    #                 "text": "Pre-release",
-    #                 "color": "blue"
-    #             }
-    #         ], {
-    #             "text": "By kworker"
-    #         }
-    #     ),
-    #     tweaks.PigPort(
-    #         *tweaks.PigPort.PRESET2
-    #     ),
-    # ])
-    # generator.wrap_length = float("inf")
-    # generator.single_tick_limit = 2 ** 31 - 1
-
-    generator.auto_tick_rate()
+    generator = InGameGenerator(fp=r"D:\音乐\Dual Existence.mid", frontend=lambda g: WorkerXG(g), plugins=[
+        tweaks.FixedTime(
+            value=18000
+        ),
+        tweaks.FixedRain(
+            value="clear"
+        ),
+        piano.PianoRoll(
+            block_type="wool"
+        ),
+        piano.PianoRollFirework(),
+        tweaks.ProgressBar(
+            text="(。・∀・)ノ 进度条"
+        ),
+        title.MainTitle(
+            [
+                {
+                    "text": "Pre-release",
+                    "color": "blue"
+                }
+            ], {
+                "text": "By kworker"
+            }
+        ),
+        tweaks.Viewport(
+            *tweaks.Viewport.PRESET2
+        ),
+    ])
+    generator.wrap_length = float("inf")
+    generator.single_tick_limit = 2 ** 31 - 1
+    generator.auto_tick_rate(base=40)
+    generator.make_note_links()
     generator.load_messages()
     generator.build_messages()
-    generator.write_datapack(r"D:\Minecraft\Client\.minecraft\versions\1.14.4-forge-28.1.56\saves\MCDI")
-    # generator.write_datapack(r"D:\Minecraft\Server\world")
+    generator.write_datapack(r"D:\Minecraft\Client\.minecraft\versions\fabric-loader-0.9.2+build.206-1.14.4\saves\MCDI")

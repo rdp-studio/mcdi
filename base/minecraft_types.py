@@ -37,14 +37,14 @@ class Function(list):
         with open(func_path, "w", encoding="utf8") as file:  # Pack - create and write function file
             file.writelines(self[:limitation])
 
-    def to_file(self, file_path) -> None:
+    def to_file(self, file_path, limitation=None) -> None:
         """
         Write the function to a file.
         :param file_path:   The path of your function
         :param limitation:  The maximum func length
         """
         with open(file_path, "w", encoding="utf8") as file:  # Pack - create and write function file
-            file.writelines(self)
+            file.writelines(self[:limitation])
 
     def from_file(self, file_path) -> None:
         """
