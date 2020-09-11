@@ -5,6 +5,7 @@ Python 3.8.x
 Minecraft 1.15.x
 """
 
+
 import logging
 import pickle
 import uuid
@@ -50,7 +51,7 @@ class BaseGenerator(MidiFile):
         r'"': r'\"',
     }
 
-    def __init__(self, fp, namespace="mcdi", identifier="music"):
+    def __init__(self, fp, namespace="mcdi", identifier="music", **kwargs):
         logging.debug("Initializing. Reading MIDI data.")
 
         super(BaseGenerator, self).__init__(fp)
@@ -67,16 +68,21 @@ class BaseGenerator(MidiFile):
         self.built_function = Function(
             namespace, identifier
         )
-        self.initial_functions = list()
-        self.extended_functions = list()
+        self.gentime_functions = list()
+        self.runtime_functions = list()
         # Tick packages
         self.single_tick_limit = 128
 
         logging.debug("Preloading tracks.")
-        self.merged_tracks = merge_tracks(
+        self.merged_track = merge_tracks(
             self.tracks
         )  # Preload tracks for speed
         vars(self)["length"] = self.length
+
+        for key, value in kwargs.items():
+            if key not in vars(self).keys():
+                raise AttributeError(f"'{self.__class__.__name__}' object has no attribute '{key}'")
+            vars(self)[key] = value
 
     def write_datapack(self, *args, **kwargs):
         # Reduces lag
@@ -88,12 +94,12 @@ class BaseGenerator(MidiFile):
 
         logging.info(f"Writing {len(self.built_function)} command(s) built.")
 
-        for i, function in enumerate(self.initial_functions):  # These runs with the build func.
+        for i, function in enumerate(self.gentime_functions):  # These runs with the build func.
             self.built_function.append(f"function {function.namespace}:{function.identifier}")
 
         self.built_function.to_pack(*args, **kwargs)  # Save to datapack
 
-        for function in self.initial_functions + self.extended_functions:
+        for function in self.gentime_functions + self.runtime_functions:
             function.to_pack(*args, **kwargs)  # Save these to datapack
 
         logging.info("Write procedure finished. Now enjoy your music!")
@@ -101,7 +107,7 @@ class BaseGenerator(MidiFile):
     def __iter__(self):  # Insecure!!
         tempo = 5e5
 
-        for msg in self.merged_tracks:
+        for msg in self.merged_track:
             delta = tick2second(msg.time, self.ticks_per_beat, tempo) if msg.time > 0 else 0
 
             yield fast_copy(msg, time=delta)
@@ -111,8 +117,11 @@ class BaseGenerator(MidiFile):
 
 
 class BaseCbGenerator(BaseGenerator):
-    def __init__(self, *args, **kwargs):
-        super(BaseCbGenerator, self).__init__(*args, **kwargs)
+    def __init__(self, plugins, *args, **kwargs):
+        if plugins is None:
+            self.plugins = []
+        else:
+            self.plugins = list(plugins)
 
         self.wrap_length = 128
         # Build variables
@@ -126,6 +135,8 @@ class BaseCbGenerator(BaseGenerator):
         self.is_first_tick = False
         self.is_last_tick = False
 
+        super(BaseCbGenerator, self).__init__(*args, **kwargs)
+
         # Tick packages
         self._use_function_array = False  # * Experimental *
         self._auto_function_array = True  # * Experimental *
@@ -134,7 +145,7 @@ class BaseCbGenerator(BaseGenerator):
         self.schedules = {}
 
     def _add_tick_package(self):
-        self.extended_functions.append(pkg := self._current_tick_pkg)
+        self.runtime_functions.append(pkg := self._current_tick_pkg)
         self._set_command_block(
             command=f"function {self.namespace}:{pkg.identifier}"
         )
@@ -159,7 +170,8 @@ class BaseCbGenerator(BaseGenerator):
             command = str(command).replace(unsafe, alternative)
 
         self.built_function.append(
-            f'setblock ~{x_shift} ~{y_shift} ~{z_shift} minecraft:{"chain_" if chain else ""}command_block[facing={facing}]{{auto:{"true" if auto else "false"},Command:"{command}",LastOutput:false,TrackOutput:false}} replace'
+            f'setblock ~{x_shift} ~{y_shift} ~{z_shift} minecraft:{"chain_" if chain else ""}command_block[facing='
+            f'{facing}]{{auto:{"true" if auto else "false"},Command:"{command}",LastOutput:false,TrackOutput:false}}'
         )
 
         self.y_axis_index += 1
@@ -187,6 +199,72 @@ class BaseCbGenerator(BaseGenerator):
                 "Function array is a unstable feature and you may *NOT* commit a issue for that."
             ))
         self._auto_function_array = value
+
+    def _reset_build_status(self):
+        self.built_function.clear()
+
+        # Clear built items
+        self.tick_cache.clear()
+        self.built_tick_count = 0
+
+        self.tick_index = 0
+        self.y_axis_index = 0
+        self.build_axis_index = 0
+        self.wrap_axis_index = 0
+        self.is_first_tick = self.is_last_tick = False
+
+    def _init_plugin_status(self):
+        for plugin in self.plugins:
+            for dependency in plugin.__dependencies__:
+                assert dependency in tuple(
+                    map(type, self.plugins)), f"Dependency {dependency} of {plugin} is required, but not found."
+            plugin.dependency_connect(filter(lambda x: type(x) in plugin.__dependencies__, self.plugins))
+            for conflict in plugin.__conflicts__:
+                assert conflict not in tuple(
+                    map(type, self.plugins)), f"Conflict {conflict} of {plugin} is strictly forbidden, but found."
+            plugin.init(self)
+
+    def _update_build_status(self):
+        self.build_axis_index = self.built_tick_count % self.wrap_length  # For plugins
+        self.wrap_axis_index = self.built_tick_count // self.wrap_length  # For plugins
+        self.wrap_state = (self.built_tick_count + 1) % self.wrap_length == 0
+        self.is_first_tick = self.is_last_tick = False
+
+        if self.tick_index == -self.blank_ticks:
+            self.is_first_tick = True
+        if self.tick_index == self.loaded_tick_count:
+            self.is_last_tick = True
+
+        if self.wrap_state:
+            self._set_command_block(  # Row to wrap
+                chain=0, auto=0, command=f"setblock ~{1 - self.wrap_length} ~-1 ~1 minecraft:redstone_block")
+        else:
+            self._set_command_block(  # Ordinary row
+                chain=0, auto=0, command="setblock ~1 ~-1 ~ minecraft:redstone_block")
+
+        self._set_command_block(command="setblock ~ ~-2 ~ minecraft:air replace")  # Remove redstone block
+
+        if self.auto_function_array:
+            if len(self.tick_cache) > 127:
+                self._current_tick_pkg = rand_func(self.namespace)
+                self._use_function_array = True
+            else:
+                self._use_function_array = False
+
+    def _execute_schedules(self):
+        if self.tick_index in self.schedules.keys():
+            for i in self.schedules[self.tick_index]:
+                self.add_tick_command(command=i)
+            del self.schedules[self.tick_index]
+
+    def _reload_build_status(self):
+        if self._use_function_array:
+            self._add_tick_package()
+
+        # Get ready for next tick
+        self.built_tick_count += 1
+        self.tick_cache.clear()
+        self.y_axis_index = 0
 
     # Plugin APIs
 
@@ -217,18 +295,11 @@ class BaseCbGenerator(BaseGenerator):
 
 
 class InGameGenerator(BaseCbGenerator):
-    def __init__(self, frontend, plugins=None, middles=None, *args, **kwargs):
-        if plugins is None:
-            self.plugins = []
-        else:
-            self.plugins = list(plugins)
+    def __init__(self, frontend, middles=None, *args, **kwargs):
         if middles is None:
             self.middles = []
         else:
             self.middles = list(middles)
-
-        super(InGameGenerator, self).__init__(*args, **kwargs)
-
         self.frontend = frontend(self)
 
         # Load variables
@@ -241,6 +312,8 @@ class InGameGenerator(BaseCbGenerator):
         self.pitch_base = 8192
 
         self.note_links = {}
+
+        super(InGameGenerator, self).__init__(*args, **kwargs)
 
     def auto_tick_rate(self, duration=None, tolerance=5, step=.01, base=20, strict=False):
         if not duration:  # Calculate the length myself
@@ -441,57 +514,14 @@ class InGameGenerator(BaseCbGenerator):
     def build_messages(self):
         logging.debug(f'Building {len(self.loaded_messages)} event(s) loaded.')
 
-        self.built_function.clear()
-
-        # Clear built items
-        self.tick_cache.clear()
-        self.built_tick_count = 0
-
-        self.tick_index = 0
-        self.y_axis_index = 0
-        self.build_axis_index = 0
-        self.wrap_axis_index = 0
-        self.is_first_tick = self.is_last_tick = False
-
-        for plugin in self.plugins:
-            for dependency in plugin.__dependencies__:
-                assert dependency in tuple(
-                    map(type, self.plugins)), f"Dependency {dependency} of {plugin} is required, but not found."
-            plugin.dependency_connect(filter(lambda x: type(x) in plugin.__dependencies__, self.plugins))
-            for conflict in plugin.__conflicts__:
-                assert conflict not in tuple(
-                    map(type, self.plugins)), f"Conflict {conflict} of {plugin} is strictly forbidden, but found."
-            plugin.init(self)
+        self._reset_build_status()
+        self._init_plugin_status()
 
         for self.tick_index in range(-self.blank_ticks, self.loaded_tick_count + 1):
-            self.build_axis_index = self.built_tick_count % self.wrap_length  # For plugins
-            self.wrap_axis_index = self.built_tick_count // self.wrap_length  # For plugins
-            wrap_state = (self.built_tick_count + 1) % self.wrap_length == 0
-            self.is_first_tick = self.is_last_tick = False
-
-            if self.tick_index == -self.blank_ticks:
-                self.is_first_tick = True
-            if self.tick_index == self.loaded_tick_count:
-                self.is_last_tick = True
-
-            if wrap_state:
-                self._set_command_block(  # Row to wrap
-                    chain=0, auto=0, command=f"setblock ~{1 - self.wrap_length} ~-1 ~1 minecraft:redstone_block")
-            else:
-                self._set_command_block(  # Ordinary row
-                    chain=0, auto=0, command="setblock ~1 ~-1 ~ minecraft:redstone_block")
-
-            self._set_command_block(command="setblock ~ ~-2 ~ minecraft:air replace")  # Remove redstone block
+            self._update_build_status()
 
             while (messages := self.loaded_messages) and messages[0]["tick"] == self.tick_index:
                 self.tick_cache.append(self.loaded_messages.popleft())  # Deque object is used to improve performance
-
-            if self.auto_function_array:
-                if len(self.tick_cache) > 127:
-                    self._current_tick_pkg = rand_func(self.namespace)
-                    self._use_function_array = True
-                else:
-                    self._use_function_array = False
 
             for i, message in enumerate(self.tick_cache):
                 if i > self.single_tick_limit and not (self.is_first_tick or self.is_last_tick):
@@ -505,18 +535,8 @@ class InGameGenerator(BaseCbGenerator):
             for plugin in self.plugins:  # Execute plugin
                 plugin.exec(self)
 
-            if self.tick_index in self.schedules.keys():
-                for i in self.schedules[self.tick_index]:
-                    self.add_tick_command(command=i)
-                del self.schedules[self.tick_index]
-
-            if self._use_function_array:
-                self._add_tick_package()
-
-            # Get ready for next tick
-            self.built_tick_count += 1
-            self.tick_cache.clear()
-            self.y_axis_index = 0
+            self._execute_schedules()
+            self._reload_build_status()
 
             if self.tick_index % 100 == 0:  # Show progress
                 logging.info(f"Built {self.tick_index} tick(s), {self.loaded_tick_count + 1} tick(s) in all.")
@@ -558,12 +578,7 @@ class InGameGenerator(BaseCbGenerator):
 class RealTimeGenerator(BaseCbGenerator):
     IN_GAME_COMPATIBLE = {"program": 0, "v": 127, "pitch": 1, "phase": 64, "linked": None}
 
-    def __init__(self, plugins=None, *args, **kwargs):
-        if plugins is None:
-            self.plugins = []
-        else:
-            self.plugins = list(plugins)
-
+    def __init__(self, *args, **kwargs):
         super(RealTimeGenerator, self).__init__(*args, **kwargs)
 
     def load_messages(self):
@@ -575,9 +590,7 @@ class RealTimeGenerator(BaseCbGenerator):
 
         for index, message in enumerate(self):
             if message.is_meta:
-                if message.type == "set_tempo":
-                    self.tempo = message.tempo
-                elif message.type == "time_signature":
+                if message.type == "time_signature":
                     logging.debug(f"MIDI file timing info: {message.numerator}/{message.denominator}.")
                 elif message.type == "key_signature":
                     logging.debug(f"MIDI file pitch info: {message.key}.")
@@ -617,57 +630,14 @@ class RealTimeGenerator(BaseCbGenerator):
     def build_messages(self):
         logging.debug(f'Building {len(self.loaded_messages)} event(s).')
 
-        self.built_function.clear()
-
-        # Clear built items
-        self.tick_cache.clear()
-        self.built_tick_count = 0
-
-        self.tick_index = 0
-        self.y_axis_index = 0
-        self.build_axis_index = 0
-        self.wrap_axis_index = 0
-        self.is_first_tick = self.is_last_tick = False
-
-        for plugin in self.plugins:
-            for dependency in plugin.__dependencies__:
-                assert dependency in tuple(
-                    map(type, self.plugins)), f"Dependency {dependency} of {plugin} is required, but not found."
-            plugin.dependency_connect(filter(lambda x: type(x) in plugin.__dependencies__, self.plugins))
-            for conflict in plugin.__conflicts__:
-                assert conflict not in tuple(
-                    map(type, self.plugins)), f"Conflict {conflict} of {plugin} is strictly forbidden, but found."
-            plugin.init(self)
+        self._reset_build_status()
+        self._init_plugin_status()
 
         for self.tick_index in range(-self.blank_ticks, self.loaded_tick_count + 1):
-            self.build_axis_index = self.built_tick_count % self.wrap_length  # For plugins
-            self.wrap_axis_index = self.built_tick_count // self.wrap_length  # For plugins
-            wrap_state = (self.built_tick_count + 1) % self.wrap_length == 0
-            self.is_first_tick = self.is_last_tick = False
-
-            if self.tick_index == -self.blank_ticks:
-                self.is_first_tick = True
-            if self.tick_index == self.loaded_tick_count:
-                self.is_last_tick = True
-
-            if wrap_state:
-                self._set_command_block(  # Row to wrap
-                    chain=0, auto=0, command=f"setblock ~{1 - self.wrap_length} ~-1 ~1 minecraft:redstone_block")
-            else:
-                self._set_command_block(  # Ordinary row
-                    chain=0, auto=0, command="setblock ~1 ~-1 ~ minecraft:redstone_block")
-
-            self._set_command_block(command="setblock ~ ~-2 ~ minecraft:air replace")  # Remove redstone block
+            self._update_build_status()
 
             while (messages := self.loaded_messages) and messages[0]["tick"] == self.tick_index:
                 self.tick_cache.append(self.loaded_messages.popleft())  # Deque object is used to improve performance
-
-            if self.auto_function_array:
-                if len(self.tick_cache) > 127:
-                    self._current_tick_pkg = rand_func(self.namespace)
-                    self._use_function_array = True
-                else:
-                    self._use_function_array = False
 
             for i, message in enumerate(self.tick_cache):
                 if i > self.single_tick_limit and not (self.is_first_tick or self.is_last_tick):
@@ -677,18 +647,8 @@ class RealTimeGenerator(BaseCbGenerator):
             for plugin in self.plugins:  # Execute plugin
                 plugin.exec(self)
 
-            if self.tick_index in self.schedules.keys():
-                for i in self.schedules[self.tick_index]:
-                    self.add_tick_command(command=i)
-                del self.schedules[self.tick_index]
-
-            if self._use_function_array:
-                self._add_tick_package()
-
-            # Get ready for next tick
-            self.built_tick_count += 1
-            self.tick_cache.clear()
-            self.y_axis_index = 0
+            self._execute_schedules()
+            self._reload_build_status()
 
             if self.tick_index % 100 == 0:  # Show progress
                 logging.info(f"Built {self.tick_index} tick(s), {self.loaded_tick_count + 1} tick(s) in all.")
@@ -766,11 +726,9 @@ if __name__ == '__main__':
         tweaks.Viewport(
             *tweaks.Viewport.PRESET2
         ),
-    ])
-    generator.wrap_length = float("inf")
-    generator.single_tick_limit = 2 ** 31 - 1
+    ], wrap_length = float("inf"), single_tick_limit = 2 ** 31 - 1)
     generator.auto_tick_rate(base=40)
     generator.make_note_links()
     generator.load_messages()
     generator.build_messages()
-    generator.write_datapack(r"D:\Minecraft\Client\.minecraft\versions\fabric-loader-0.9.2+build.206-1.14.4\saves\MCDI")
+    generator.write_datapack(r"D:\Minecraft\Client\.minecraft\versions\fabric-loader-0.9.2+build.206-1.16.2\saves\MCDI")

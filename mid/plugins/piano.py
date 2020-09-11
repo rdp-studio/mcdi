@@ -65,7 +65,7 @@ class PianoRoll(Plugin):
             function.append(setblock_cmd)
 
         function.append(f"forceload remove all")
-        generator.initial_functions.append(function)
+        generator.gentime_functions.append(function)
 
 
 class PianoRollFirework(Plugin):
@@ -83,7 +83,7 @@ class PianoRollFirework(Plugin):
         for i in range(16):
             function = Function(generator.namespace, f"pno_roll_effect{i}")
             function.from_file(f"functions/piano_roll_blast_effect{i}.mcfunction")
-            generator.extended_functions.append(function)
+            generator.runtime_functions.append(function)
 
     def exec(self, generator: BaseCbGenerator):
         toplevel_note = {}  # Reduces lag, improves performance

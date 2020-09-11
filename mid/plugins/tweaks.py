@@ -78,7 +78,7 @@ class PigPort(Plugin):
         function.extend(
             ["summon minecraft:pig ~-1 ~1 ~-1 {Saddle: 1b, NoGravity: 1b, NoAI: 1b, Silent: 1b, CustomName: '\"PP\"'}",
              "effect give @e[type=minecraft:pig,name=PP] minecraft:invisibility 1000000 1 true"])
-        generator.initial_functions.append(function)
+        generator.gentime_functions.append(function)
 
     def exec(self, generator: BaseCbGenerator):
         x, y, z = self.position

@@ -1,7 +1,8 @@
+import itertools
+from math import ceil
+
 import cv2
 import numpy as np
-import itertools
-import matplotlib.pyplot as plt
 
 
 def count(__iterable):
@@ -12,13 +13,15 @@ def count(__iterable):
 
     return count
 
-def percent(__iterable):
+
+def ratio(__iterable):
     count = 0
 
     for j, i in enumerate(__iterable):
         if i: count += 1
 
     return count / (j + 1)
+
 
 class Parser(object):
     def __init__(self, fp):
@@ -48,7 +51,7 @@ class Parser(object):
         is_non_black_px = lambda col: sum(col[:3]) > threshold
 
         for y, row in enumerate(image):  # Where lines are detected
-            accum[y] = percent(map(is_non_black_px, row)) > 0.5
+            accum[y] = ratio(map(is_non_black_px, row)) > 0.5
 
         region_sizes = []
         region_size = 0
@@ -68,21 +71,90 @@ class Parser(object):
         min_size = np.min(region_sizes)
 
         for first_line in first_lines:
-            for i in range(5): yield int(first_line + round(i * min_size / 4))
+            for i in range(5):
+                yield (y := int(first_line + round(i * min_size / 4)))
 
-    def find_heads(self, *args, **kwargs):
-        lines = list(self.find_lines(*args, **kwargs))
-        space_width = sum(lines) / 5  # 5 Lines -> 4 Spaces
+    def find_extra_lines(self, ratio=1.5, *args, **kwargs):
+        lines = list(
+            self.find_lines(*args, **kwargs)
+        )
+        space_width = lines[1] - lines[0]
 
-        for y in lines:
-            for x in range(0, self.img.shape[1]):
-                min_scan = int(round(y - space_width / 2))
-                max_scan = int(round(y + space_width / 2))
+        if len(lines) > 5:
+            max_find = (lines[5] - lines[4]) / ratio
+        else:
+            max_find = self.img.shape[0]
 
-                pixel_sums = []
+        valid_y = range(0, self.img.shape[0])
 
-                for i in range(min_scan, max_scan):
-                    pixel_sums.append(sum(self.img[y][x][:3]))
+        line_sets = []
 
-                if np.mean(pixel_sums) < 16:
-                    NotImplemented
+        for i in range(0, len(lines), 5):
+            line_set = lines[i:i + 5]
+            real_set = line_set.copy()
+
+            for j in range(ceil(max_find / space_width)):
+                extra_line = round(real_set[0] - space_width * j)
+
+                if extra_line in valid_y and extra_line not in line_set:
+                    line_set.append(extra_line)
+
+            for j in range(ceil(max_find / space_width)):
+                extra_line = round(real_set[-1] + space_width * j)
+
+                if extra_line in valid_y and extra_line not in line_set:
+                    line_set.append(extra_line)
+
+            line_sets.append(line_set)
+
+        return line_sets
+
+    def find_valid_heads(self, factor=1.2, *args, **kwargs):
+        line_sets = self.find_extra_lines(*args, **kwargs)
+
+        for lines in line_sets:
+            space_width = lines[1] - lines[0]  # 4 spaces
+
+            img = self.img.copy()
+
+            for y in lines:
+                cv2.line(img, (0, y), (img.shape[1], y), (255, 0, 0))
+
+            cv2.imshow("", img)
+            cv2.waitKey()
+            cv2.destroyAllWindows()
+
+            img = self.img.copy()
+
+            slice_count = 0
+
+            for y in itertools.chain(lines, map(lambda x: round(x + space_width / 2), lines)):
+                for x in range(0, self.img.shape[1]):
+                    min_scan = int(round(y - space_width / 2))
+                    max_scan = int(round(y + space_width / 2))
+
+                    pixel_sums = []
+
+                    for i in range(min_scan, max_scan):
+                        pixel = self.img[y][x][:3]
+                        pixel_sums.append(sum(pixel))
+
+                    if not np.mean(pixel_sums):
+                        slice_count += 1
+                    elif space_width < slice_count < space_width * factor:
+                        cv2.line(img, (x - slice_count, min_scan), (x - slice_count, max_scan), (0, 0, 255))
+                        cv2.line(img, (x, min_scan), (x - slice_count, min_scan), (0, 0, 255))
+                        cv2.line(img, (x, max_scan), (x - slice_count, max_scan), (0, 0, 255))
+                        cv2.line(img, (x, min_scan), (x, max_scan), (0, 0, 255))
+                        slice_count = 0
+                    else:
+                        slice_count = 0
+
+            cv2.imshow("", img)
+            cv2.waitKey()
+            cv2.destroyAllWindows()
+
+
+if __name__ == '__main__':
+    parser = Parser("staff.jpg")
+    parser.find_valid_heads()

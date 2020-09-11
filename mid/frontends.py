@@ -36,7 +36,7 @@ class WorkerXG(Frontend):
     def __init__(self, parent: InGameGenerator,
                  use_stop: "Use the stopsound command." = True,
                  use_drum: "Use the MIDI drum channel." = True,
-                 stop_drum: "Use stopsound for drum." = True,
+                 stop_drum: "Use stopsound for drum." = False,
                  drum_stop_delay: "How long to delay stopsound for drum." = 40,
                  use_old_context: "Use old context when fading a note," = True):
 
@@ -147,7 +147,7 @@ class Soma(Frontend):
     def __init__(self, parent: InGameGenerator,
                  use_stop: "Use the stopsound command." = True,
                  use_drum: "Use the MIDI drum channel." = True,
-                 stop_drum: "Use stopsound for drum." = True,
+                 stop_drum: "Use stopsound for drum." = False,
                  threshold: "The threshold for long notes." = 40):
 
         super(Soma, self).__init__()
