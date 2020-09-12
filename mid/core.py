@@ -74,9 +74,11 @@ class BaseGenerator(MidiFile):
         self.single_tick_limit = 128
 
         logging.debug("Preloading tracks.")
-        self.merged_track = merge_tracks(
+        self._merged_track = merge_tracks(
             self.tracks
         )  # Preload tracks for speed
+        self._preloaded = list(self.preload())
+        # Preload messages for speed
         vars(self)["length"] = self.length
 
         for key, value in kwargs.items():
@@ -104,16 +106,19 @@ class BaseGenerator(MidiFile):
 
         logging.info("Write procedure finished. Now enjoy your music!")
 
-    def __iter__(self):  # Insecure!!
+    def preload(self):  # Insecure!!
         tempo = 5e5
 
-        for msg in self.merged_track:
-            delta = tick2second(msg.time, self.ticks_per_beat, tempo) if msg.time > 0 else 0
-
-            yield fast_copy(msg, time=delta)
+        for msg in self._merged_track:
+            yield fast_copy(
+                msg, time=tick2second(msg.time, self.ticks_per_beat, tempo) if msg.time > 0 else 0
+            )
 
             if msg.type == 'set_tempo':
                 tempo = msg.tempo
+
+    def __iter__(self):  # Insecure!!
+        for msg in self._preloaded: yield msg
 
 
 class BaseCbGenerator(BaseGenerator):
@@ -386,8 +391,6 @@ class InGameGenerator(BaseCbGenerator):
                 )
 
                 sustain_msgs.remove(old_msg)
-
-                logging.debug(f"Linked on-note #{i} to off-note #{index}.")
 
             elif "prog" in message.type:
                 program_mapping[message.channel] = {"value": message.program, "time": timestamp}
@@ -699,7 +702,7 @@ if __name__ == '__main__':
 
     logging.basicConfig(level=logging.DEBUG)
 
-    generator = InGameGenerator(fp=r"D:\音乐\Dual Existence.mid", frontend=lambda g: WorkerXG(g), plugins=[
+    generator = InGameGenerator(fp=r"D:\音乐\Only My Railgun(1).mid", frontend=lambda g: WorkerXG(g), plugins=[
         tweaks.FixedTime(
             value=18000
         ),

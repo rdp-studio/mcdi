@@ -38,7 +38,7 @@ class WorkerXG(Frontend):
                  use_drum: "Use the MIDI drum channel." = True,
                  stop_drum: "Use stopsound for drum." = False,
                  drum_stop_delay: "How long to delay stopsound for drum." = 40,
-                 use_old_context: "Use old context when fading a note," = True):
+                 use_old_context: "Use old context when fading a note." = True):
 
         super(WorkerXG, self).__init__()
         self.parent = parent
@@ -48,7 +48,7 @@ class WorkerXG(Frontend):
         self.drum_stop_delay = drum_stop_delay
         self.use_old_context = use_old_context
 
-        with open(os.path.join(os.path.split(__file__)[0], "workerxg.json")) as file:
+        with open(os.path.join(os.path.split(__file__)[0], "wxmpng.json")) as file:
             self.mapping = json.load(file)
 
     def get_play_cmd(self, ch, note, program, v, phase, pitch, **kwargs):

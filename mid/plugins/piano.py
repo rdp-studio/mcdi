@@ -110,3 +110,48 @@ class PianoRollFirework(Plugin):
 
     def dependency_connect(self, dependencies):
         self.parent = next(dependencies)
+
+
+class PianoRollRenderer(Plugin):
+    __author__ = "kworker"
+    __doc__ = "3D effects of notes for 'PianoRoll'."
+
+    __dependencies__ = [PianoRoll]
+
+    def __init__(self,
+                 expressions: "The pattern expressions(in lambda) for channels." = None,
+                 dot_distance: "The distance between two particles in the patterns." = .25,
+                 effect_limit: "Show effects only when note number lt this value." = 65535):
+        """
+        Expression Syntax:
+        {
+            "expressions": [
+                Callable[float, float, float] -> Union[float, dict],
+                ...
+            ],
+            "channels": Union[list, "*"],
+            "tracks": Union[list, "*"],
+            "particle": Union[str, None],
+            "additional": {
+                "dx": ...,
+                "dy": ...,
+                "dz": ...,
+                "speed": ...,
+                ...
+            }
+        }
+        """
+
+        self.parent: PianoRoll
+        if expressions is None:
+            self.expressions = []
+        else:
+            self.expressions = list(expressions)
+        self.dot_distance = dot_distance
+        self.effect_limit = effect_limit
+
+    def exec(self, generator: BaseCbGenerator):
+        pass
+
+    def dependency_connect(self, dependencies):
+        self.parent = next(dependencies)

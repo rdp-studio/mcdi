@@ -1,6 +1,6 @@
 from abc import abstractmethod
 
-from mid.core import BaseGenerator
+from mid.core import BaseCbGenerator
 
 
 class Plugin(object):
@@ -10,11 +10,11 @@ class Plugin(object):
     __author__ = "undefined"
 
     @abstractmethod
-    def exec(self, generator: BaseGenerator):
+    def exec(self, generator: BaseCbGenerator):
         pass
 
     @abstractmethod
-    def init(self, generator: BaseGenerator):
+    def init(self, generator: BaseCbGenerator):
         pass
 
     @abstractmethod
