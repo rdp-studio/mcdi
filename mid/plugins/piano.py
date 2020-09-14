@@ -1,7 +1,7 @@
-from math import inf
+from math import inf, sqrt
 
 from base.minecraft_types import *
-from mid.core import BaseCbGenerator
+from mid.core import BaseCbGenerator, float_range
 from mid.plugins import Plugin
 
 
@@ -16,6 +16,7 @@ class PianoRoll(Plugin):
                  mapping: "Maps the channels to the colors of the falling blocks." = None,
                  block_type: "'stained_glass', 'concrete', 'wool' or 'terracotta'" = None,
                  layered: "Show the piano roll in layers for different channels." = True,
+                 real_len: "Show the real length of the note. Note links required." = False,
                  ):
         self.wrap_shift = wrap_shift
         self.axis_y_shift = axis_y_shift
@@ -31,6 +32,7 @@ class PianoRoll(Plugin):
         ) else "wool"
 
         self.layered = layered
+        self.real_len = real_len
 
     def init(self, generator: BaseCbGenerator):
         generator.wrap_length = inf  # Force no wrap
@@ -43,7 +45,7 @@ class PianoRoll(Plugin):
 
             y_layer = self.layered * on_note["ch"]
 
-            if on_note["linked"] is not None:
+            if on_note["linked"] is not None and self.real_len:
                 duration = on_note["linked"][0] - on_note["linked"][1]
             else:
                 duration = 0
@@ -93,7 +95,7 @@ class PianoRollFirework(Plugin):
                 continue  # When not layered, toplevel notes only
 
             if len(on_notes) > self.effect_limit:
-                continue  # Too much notes, no effect.
+                break  # Too much notes, no effect.
 
             if self.parent.reverse_wrap:
                 z_shift = on_note["note"] - self.parent.wrap_shift - 128
@@ -120,13 +122,17 @@ class PianoRollRenderer(Plugin):
 
     def __init__(self,
                  expressions: "The pattern expressions(in lambda) for channels." = None,
-                 dot_distance: "The distance between two particles in the patterns." = .25,
+                 dot_distance: "The distance between two particles in the patterns." = .3,
                  effect_limit: "Show effects only when note number lt this value." = 65535):
         """
         Expression Syntax:
         {
-            "expressions": [
-                Callable[float, float, float] -> Union[float, dict],
+            "functions": [
+                Callable[
+                    Tuple[float, float, float],
+                    Tuple[float, float, float],
+                    float, BaseCbGenerator
+                ] -> Tuple[float, float, float, int, dict],
                 ...
             ],
             "channels": Union[list, "*"],
@@ -147,11 +153,129 @@ class PianoRollRenderer(Plugin):
             self.expressions = []
         else:
             self.expressions = list(expressions)
+        self.expr_mapping = {
+            "tracks": {},
+            "channels": {}
+        }
         self.dot_distance = dot_distance
         self.effect_limit = effect_limit
 
+    def init(self, generator: BaseCbGenerator):
+        track_count = len(generator.tracks)
+
+        for expr in self.expressions:
+            if expr["channels"] == "*":
+                channels = range(0, 16)
+            else:
+                channels = expr["channels"]
+            for i in channels:
+                self.expr_mapping["channels"][i] = expr
+
+            if expr["tracks"] == "*":
+                tracks = range(0, track_count)
+            else:
+                tracks = expr["tracks"]
+            for i in tracks:
+                self.expr_mapping["tracks"][i] = expr
+
     def exec(self, generator: BaseCbGenerator):
-        pass
+        toplevel_note = {}  # Reduces lag, improves performance
+        rendered_notes = []
+
+        for on_note in (on_notes := generator.current_on_notes()[::-1]):
+            if on_note["note"] in toplevel_note.keys():
+                continue  # When not layered, toplevel notes only
+
+            if len(on_notes) > self.effect_limit:
+                break  # Too much notes, no effect.
+
+            if on_note["ch"] not in self.expr_mapping["channels"].keys():
+                continue  # No way!
+
+            if on_note is on_notes[-1]:
+                for future in generator.future_on_notes(ch=on_note["ch"]):
+                    if future in rendered_notes:
+                        continue
+                    self._render(on_note, future, generator)
+                    rendered_notes.append(future)
+            else:
+                min_distance, nearest_future = float(inf), None
+
+                for future in generator.future_on_notes(ch=on_note["ch"]):
+                    if future in rendered_notes:
+                        continue
+                    distance = abs(future["note"] - on_note["note"])
+                    if distance < min_distance:
+                        min_distance = distance
+                        nearest_future = future
+
+                if nearest_future is not None:
+                    self._render(on_note, nearest_future, generator)
+                    rendered_notes.append(nearest_future)
+
+            if not self.parent.layered:
+                toplevel_note[on_note["note"]] = True
+
+    def _render(self, on_note, future, generator: BaseCbGenerator):
+        if self.parent.reverse_wrap:
+            z_shift = on_note["note"] - self.parent.wrap_shift - 128
+        else:
+            z_shift = on_note["note"] + self.parent.wrap_shift
+
+        cx, cz = 0, z_shift
+
+        if self.parent.reverse_wrap:
+            z_shift = future["note"] - self.parent.wrap_shift - 128
+        else:
+            z_shift = future["note"] + self.parent.wrap_shift
+
+        nx, nz = future["tick"] - on_note["tick"], z_shift
+        y_layer = self.parent.layered * on_note["ch"]
+        rel_dy = self.parent.axis_y_shift + y_layer
+
+        for function in (expr := self.expr_mapping["channels"][on_note["ch"]])["functions"]:
+            for x, y, z, delta_time, add in function((cx, cz), (nx, nz), self.dot_distance, generator):
+                additional = dict(*add, *expr["additional"])
+                dx = additional["dx"] if "dx" in additional else 0
+                dy = additional["dy"] if "dy" in additional else 0
+                dz = additional["dz"] if "dz" in additional else 0
+                s = additional["speed"] if "speed" in additional else 0
+                c = additional["count"] if "count" in additional else 1
+                rx, ry, rz = -delta_time, rel_dy, cz
+                generator.schedule(
+                    delta_time, f"particle {expr['particle']} ~{x} ~{y} ~{z} {dx} {dy} {dz} {s} {c} force",
+                    x=lambda s, _rx=rx: _rx, y=lambda s, _ry=ry: _ry - s.y_axis_index, z=lambda s, _rz=rz: _rz,
+                )
 
     def dependency_connect(self, dependencies):
         self.parent = next(dependencies)
+
+
+class LineFunctionPreset(object):
+    def __call__(self, c, n, dd: float, generator: BaseCbGenerator) -> Tuple[float, float, float, int, dict]:
+        cx, cz, fx, fz = c + n
+        length = sqrt((fx - cx) ** 2 + (fz - cz) ** 2)
+        dc = length / dd
+        dx = fx - cx
+        dz = fz - cz
+        ratio = dz / dx
+
+        for x in float_range(0, dx, dx / dc):
+            z = x * ratio
+            yield x, 0, z, round(x), {}
+
+
+class PowerFunctionPreset(object):
+    def __init__(self, k=.2):
+        self.k = k
+
+    def __call__(self, c, n, dd: float, generator: BaseCbGenerator) -> Tuple[float, float, float, int, dict]:
+        cx, cz, fx, fz = c + n
+        mw = fx - cx
+        mh = (self.k * mw ** 2) / 4
+        f = lambda x: -self.k * x ** 2 + mh
+
+        for i, x in enumerate(float_range(0, mw, dd)):
+            y = f(x - mw / 2)
+            z = (fz - cz) * i / (mw / dd)
+            yield x, y, z, round(x), {}

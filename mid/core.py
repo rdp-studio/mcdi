@@ -8,6 +8,7 @@ Minecraft 1.15.x
 
 import logging
 import pickle
+import time
 import uuid
 from abc import abstractmethod
 from base64 import b64encode
@@ -77,8 +78,9 @@ class BaseGenerator(MidiFile):
         self._merged_track = merge_tracks(
             self.tracks
         )  # Preload tracks for speed
-        self._preloaded = list(self.preload())
-        # Preload messages for speed
+        self._preloaded = list(
+            self._preload()
+        ) # Preload messages for speed
         vars(self)["length"] = self.length
 
         for key, value in kwargs.items():
@@ -106,7 +108,7 @@ class BaseGenerator(MidiFile):
 
         logging.info("Write procedure finished. Now enjoy your music!")
 
-    def preload(self):  # Insecure!!
+    def _preload(self):  # Insecure!!
         tempo = 5e5
 
         for msg in self._merged_track:
@@ -118,7 +120,7 @@ class BaseGenerator(MidiFile):
                 tempo = msg.tempo
 
     def __iter__(self):  # Insecure!!
-        for msg in self._preloaded: yield msg
+        return iter(self._preloaded)
 
 
 class BaseCbGenerator(BaseGenerator):
@@ -145,20 +147,20 @@ class BaseCbGenerator(BaseGenerator):
         # Tick packages
         self._use_function_array = False  # * Experimental *
         self._auto_function_array = True  # * Experimental *
-        self._current_tick_pkg = rand_func(self.namespace)
+        self.current_tick_pkg = rand_func(self.namespace)
 
         self.schedules = {}
 
     def _add_tick_package(self):
-        self.runtime_functions.append(pkg := self._current_tick_pkg)
+        self.runtime_functions.append(pkg := self.current_tick_pkg)
         self._set_command_block(
             command=f"function {self.namespace}:{pkg.identifier}"
         )
-        self._current_tick_pkg = rand_func(self.namespace)
+        self.current_tick_pkg = rand_func(self.namespace)
 
     def add_tick_command(self, command=None, *args, **kwargs):
         if self._use_function_array:  # Use functions to build music
-            return self._current_tick_pkg.append(command=command)
+            return self.current_tick_pkg.append(command=command)
         self._set_command_block(command=command, *args, **kwargs)
 
     def _set_command_block(self, x_shift=None, y_shift=None, z_shift=None, chain=1, auto=1, command=None, facing="up"):
@@ -251,15 +253,16 @@ class BaseCbGenerator(BaseGenerator):
 
         if self.auto_function_array:
             if len(self.tick_cache) > 127:
-                self._current_tick_pkg = rand_func(self.namespace)
+                self.current_tick_pkg = rand_func(self.namespace)
                 self._use_function_array = True
             else:
                 self._use_function_array = False
 
     def _execute_schedules(self):
         if self.tick_index in self.schedules.keys():
-            for i in self.schedules[self.tick_index]:
-                self.add_tick_command(command=i)
+            for i, x, y, z in self.schedules[self.tick_index]:
+                x, y, z = x(self) if x else 0, y(self) if y else 0, z(self) if z else 0
+                self.add_tick_command(command=f"execute positioned ~{x} ~{y} ~{z} run {i}")
             del self.schedules[self.tick_index]
 
     def _reload_build_status(self):
@@ -273,10 +276,11 @@ class BaseCbGenerator(BaseGenerator):
 
     # Plugin APIs
 
-    def schedule(self, dt, command):
+    def schedule(self, dt, command, x=None, y=None, z=None):
         if self.tick_index + dt not in self.schedules.keys():
             self.schedules[self.tick_index + dt] = []
-        self.schedules[self.tick_index + dt].append(command)
+
+        self.schedules[self.tick_index + dt].append((command, x, y, z))
 
     @abstractmethod
     def on_notes(self):
@@ -295,7 +299,11 @@ class BaseCbGenerator(BaseGenerator):
         pass
 
     @abstractmethod
-    def future_on_notes(self, tick):
+    def future_on_notes(self, tick=None, ch=None):
+        pass
+
+    @abstractmethod
+    def future_off_notes(self, tick=None, ch=None):
         pass
 
 
@@ -566,17 +574,34 @@ class InGameGenerator(BaseCbGenerator):
     def current_off_notes(self):
         return tuple(filter(lambda message: message["type"] == "note_off", self.tick_cache))  # Only for this tick
 
-    def future_on_notes(self, tick):
-        for message in self.loaded_messages:
-            if message["type"] != "note_on":
-                continue
-            if message["tick"] < tick:
-                continue
-            if message["tick"] == tick:
-                yield message
-            if message["tick"] > tick:
-                break
+    def _future_notes(self, type_, tick=None, ch=None):
+        if tick is not None:
+            for message in self.loaded_messages:
+                if message["type"] != type_:
+                    continue
+                if message["tick"] < tick:
+                    continue
+                if message["tick"] == tick and (message["ch"] == ch if ch else True):
+                    yield message
+                if message["tick"] > tick:
+                    break
+        else:
+            nearest_found = float("inf")
 
+            for message in self.loaded_messages:
+                if message["type"] != type_:
+                    continue
+                if message["tick"] <= nearest_found and (message["ch"] == ch if ch else True):
+                    nearest_found = message["tick"]
+                    yield message
+                else:
+                    break
+
+    def future_on_notes(self, tick=None, ch=None):
+        return self._future_notes("note_on", tick, ch)
+
+    def future_off_notes(self, tick=None, ch=None):
+        return self._future_notes("note_off", tick, ch)
 
 class RealTimeGenerator(BaseCbGenerator):
     IN_GAME_COMPATIBLE = {"program": 0, "v": 127, "pitch": 1, "phase": 64, "linked": None}
@@ -684,16 +709,34 @@ class RealTimeGenerator(BaseCbGenerator):
                          )
                      )  # Only for this tick
 
-    def future_on_notes(self, tick):
-        for message in self.loaded_messages:
-            if message["type"] != "note_on":
-                continue
-            if message["tick"] < tick:
-                continue
-            if message["tick"] == tick:
-                yield message["raw"]
-            if message["tick"] > tick:
-                break
+    def _future_notes(self, type_, tick=None, ch=None):
+        if tick is not None:
+            for message in self.loaded_messages:
+                if message["type"] != type_:
+                    continue
+                if message["tick"] < tick:
+                    continue
+                if message["tick"] == tick and (message["ch"] == ch if ch else True):
+                    yield message["raw"]
+                if message["tick"] > tick:
+                    break
+        else:
+            nearest_found = float("inf")
+
+            for message in self.loaded_messages:
+                if message["type"] != type_:
+                    continue
+                if message["tick"] <= nearest_found and (message["ch"] == ch if ch else True):
+                    nearest_found = message["tick"]
+                    yield message["raw"]
+                else:
+                    break
+
+    def future_on_notes(self, tick=None, ch=None):
+        return self._future_notes("note_on", tick, ch)
+
+    def future_off_notes(self, tick=None, ch=None):
+        return self._future_notes("note_off", tick, ch)
 
 
 if __name__ == '__main__':
@@ -702,7 +745,7 @@ if __name__ == '__main__':
 
     logging.basicConfig(level=logging.DEBUG)
 
-    generator = InGameGenerator(fp=r"D:\音乐\Only My Railgun(1).mid", frontend=lambda g: WorkerXG(g), plugins=[
+    generator = InGameGenerator(fp=r"D:\音乐\Flower Dance.mid", frontend=lambda g: WorkerXG(g), plugins=[
         tweaks.FixedTime(
             value=18000
         ),
@@ -713,6 +756,21 @@ if __name__ == '__main__':
             block_type="wool"
         ),
         piano.PianoRollFirework(),
+        piano.PianoRollRenderer(
+            [
+                {
+                    "functions": [
+                        piano.LineFunctionPreset(),
+                        # piano.PowerFunctionPreset()
+                    ],
+                    "channels":"*",
+                    "tracks": [],
+                    "particle": "minecraft:end_rod",
+                    "additional": {
+                    }
+                }
+            ]
+        ),
         tweaks.ProgressBar(
             text="(。・∀・)ノ 进度条"
         ),
