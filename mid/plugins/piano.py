@@ -1,3 +1,4 @@
+from abc import abstractmethod
 from math import inf, sqrt
 
 from base.minecraft_types import *
@@ -196,7 +197,7 @@ class PianoRollRenderer(Plugin):
                 for future in generator.future_on_notes(ch=on_note["ch"]):
                     if future in rendered_notes:
                         continue
-                    self._render(on_note, future, generator)
+                    self._render_note(on_note, future, generator)
                     rendered_notes.append(future)
             else:
                 min_distance, nearest_future = float(inf), None
@@ -210,13 +211,13 @@ class PianoRollRenderer(Plugin):
                         nearest_future = future
 
                 if nearest_future is not None:
-                    self._render(on_note, nearest_future, generator)
+                    self._render_note(on_note, nearest_future, generator)
                     rendered_notes.append(nearest_future)
 
             if not self.parent.layered:
                 toplevel_note[on_note["note"]] = True
 
-    def _render(self, on_note, future, generator: BaseCbGenerator):
+    def _render_note(self, on_note, future, generator: BaseCbGenerator):
         if self.parent.reverse_wrap:
             z_shift = on_note["note"] - self.parent.wrap_shift - 128
         else:
@@ -233,17 +234,26 @@ class PianoRollRenderer(Plugin):
         y_layer = self.parent.layered * on_note["ch"]
         rel_dy = self.parent.axis_y_shift + y_layer
 
-        for function in (expr := self.expr_mapping["channels"][on_note["ch"]])["functions"]:
-            for x, y, z, delta_time, add in function((cx, cz), (nx, nz), self.dot_distance, generator):
-                additional = dict(*add, *expr["additional"])
-                dx = additional["dx"] if "dx" in additional else 0
-                dy = additional["dy"] if "dy" in additional else 0
-                dz = additional["dz"] if "dz" in additional else 0
-                s = additional["speed"] if "speed" in additional else 0
-                c = additional["count"] if "count" in additional else 1
-                rx, ry, rz = -delta_time, rel_dy, cz
+        for function in self.expr_mapping["channels"][on_note["ch"]]["functions"]:
+            self._render_function(function, rel_dy, cx, cz, nx, nz, generator)
+
+    def _render_function(self, function, rel_dy, cx, cz, nx, nz, generator: BaseCbGenerator):
+        instance = function["instance"]
+        particle = function["particle"] if "particle" in function else "minecraft:end_rod"
+        arguments = function["arguments"] if "arguments" in function else {}
+        composite = function["composite"] if "composite" in function else []  # TODO Renderer composition system
+        visible = function["visible"] if "visible" in function else True
+        for x, y, z, delta_time, args in instance((cx, cz), (nx, nz), self.dot_distance, generator):
+            args = dict(*args, *arguments)
+            dx = args["dx"] if "dx" in args else 0
+            dy = args["dy"] if "dy" in args else 0
+            dz = args["dz"] if "dz" in args else 0
+            s = args["speed"] if "speed" in args else 0
+            c = args["count"] if "count" in args else 1
+            rx, ry, rz = -delta_time, rel_dy, cz
+            if visible:
                 generator.schedule(
-                    delta_time, f"particle {expr['particle']} ~{x} ~{y} ~{z} {dx} {dy} {dz} {s} {c} force",
+                    delta_time, f"particle {particle} ~{x} ~{y} ~{z} {dx} {dy} {dz} {s} {c} force",
                     x=lambda s, _rx=rx: _rx, y=lambda s, _ry=ry: _ry - s.y_axis_index, z=lambda s, _rz=rz: _rz,
                 )
 
@@ -251,7 +261,13 @@ class PianoRollRenderer(Plugin):
         self.parent = next(dependencies)
 
 
-class LineFunctionPreset(object):
+class FunctionPreset(object):
+    @abstractmethod
+    def __call__(self, c, n, dd: float, generator: BaseCbGenerator) -> Tuple[float, float, float, int, dict]:
+        pass
+
+
+class LineFunctionPreset(FunctionPreset):
     def __call__(self, c, n, dd: float, generator: BaseCbGenerator) -> Tuple[float, float, float, int, dict]:
         cx, cz, fx, fz = c + n
         length = sqrt((fx - cx) ** 2 + (fz - cz) ** 2)
@@ -265,17 +281,18 @@ class LineFunctionPreset(object):
             yield x, 0, z, round(x), {}
 
 
-class PowerFunctionPreset(object):
+class PowerFunctionPreset(FunctionPreset):
     def __init__(self, k=.2):
         self.k = k
 
     def __call__(self, c, n, dd: float, generator: BaseCbGenerator) -> Tuple[float, float, float, int, dict]:
         cx, cz, fx, fz = c + n
-        mw = fx - cx
-        mh = (self.k * mw ** 2) / 4
-        f = lambda x: -self.k * x ** 2 + mh
+        dx = fx - cx
+        dz = fz - cz
+        h = (self.k * dx ** 2) / 4
+        f = lambda x: -self.k * x ** 2 + h
 
-        for i, x in enumerate(float_range(0, mw, dd)):
-            y = f(x - mw / 2)
-            z = (fz - cz) * i / (mw / dd)
+        for i, x in enumerate(float_range(0, dx, dd)):
+            y = f(x - dx / 2)
+            z = dz * i / (dx / dd)
             yield x, y, z, round(x), {}

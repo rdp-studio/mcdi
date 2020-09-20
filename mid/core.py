@@ -5,10 +5,8 @@ Python 3.8.x
 Minecraft 1.15.x
 """
 
-
 import logging
 import pickle
-import time
 import uuid
 from abc import abstractmethod
 from base64 import b64encode
@@ -80,7 +78,7 @@ class BaseGenerator(MidiFile):
         )  # Preload tracks for speed
         self._preloaded = list(
             self._preload()
-        ) # Preload messages for speed
+        )  # Preload messages for speed
         vars(self)["length"] = self.length
 
         for key, value in kwargs.items():
@@ -603,6 +601,7 @@ class InGameGenerator(BaseCbGenerator):
     def future_off_notes(self, tick=None, ch=None):
         return self._future_notes("note_off", tick, ch)
 
+
 class RealTimeGenerator(BaseCbGenerator):
     IN_GAME_COMPATIBLE = {"program": 0, "v": 127, "pitch": 1, "phase": 64, "linked": None}
 
@@ -759,15 +758,11 @@ if __name__ == '__main__':
         piano.PianoRollRenderer(
             [
                 {
-                    "functions": [
-                        piano.LineFunctionPreset(),
-                        # piano.PowerFunctionPreset()
-                    ],
-                    "channels":"*",
+                    "functions": [{
+                        "instance": piano.LineFunctionPreset()
+                    }],
+                    "channels": "*",
                     "tracks": [],
-                    "particle": "minecraft:end_rod",
-                    "additional": {
-                    }
                 }
             ]
         ),
@@ -787,7 +782,7 @@ if __name__ == '__main__':
         tweaks.Viewport(
             *tweaks.Viewport.PRESET2
         ),
-    ], wrap_length = float("inf"), single_tick_limit = 2 ** 31 - 1)
+    ], wrap_length=float("inf"), single_tick_limit=2 ** 31 - 1)
     generator.auto_tick_rate(base=40)
     generator.make_note_links()
     generator.load_messages()
