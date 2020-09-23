@@ -1,15 +1,10 @@
-import multiprocessing
 import pickle
-import re
-import threading
 import time
 from base64 import b64encode
 from math import ceil, floor
 from operator import itemgetter
-from zipfile import ZipFile
 
 import mido
-import playsound
 
 from mid.klass import *
 
@@ -43,7 +38,7 @@ class InGameGenerator(BaseCbGenerator):
 
         max_allow = base + base * (tolerance / duration)  # Max acceptable tick rate
         min_allow = base - base * (tolerance / duration)  # Min acceptable tick rate
-        logging.debug(f"Maximum and minimum tick rate: {max_allow}, {min_allow}.")
+        logging.info(f"Maximum and minimum tick rate: {max_allow}, {min_allow}.")
 
         min_time_diff = 1  # No bigger than 1 possible
         best_tick_rate = base  # The no-choice fallback
@@ -63,7 +58,7 @@ class InGameGenerator(BaseCbGenerator):
                 min_time_diff = round_diff_sum
                 best_tick_rate = float(i)
 
-            logging.debug(f"Tick rate = {i}, round difference = {round_diff_sum}.")
+            logging.info(f"Tick rate = {i}, round difference = {round_diff_sum}.")
 
         self.tick_rate = best_tick_rate
 
@@ -127,7 +122,7 @@ class InGameGenerator(BaseCbGenerator):
         logging.info(f"{len(self.note_links)} on-off note links made.")
 
     def load_messages(self):
-        logging.debug("Loading message(s) from the MIDI file.")
+        logging.info("Loading message(s) from the MIDI file.")
 
         # Clear loaded items
         self.loaded_messages.clear()
@@ -149,9 +144,9 @@ class InGameGenerator(BaseCbGenerator):
         for index, message in enumerate(self):
             if message.is_meta:
                 if message.type == "time_signature":
-                    logging.debug(f"MIDI file timing info: {message.numerator}/{message.denominator}.")
+                    logging.info(f"MIDI file timing info: {message.numerator}/{message.denominator}.")
                 elif message.type == "key_signature":
-                    logging.debug(f"MIDI file pitch info: {message.key}.")
+                    logging.info(f"MIDI file pitch info: {message.key}.")
                 elif message.type in ("text", "copyright"):
                     logging.info(f"MIDI META message: {message.text}.")
                 continue
@@ -230,7 +225,7 @@ class InGameGenerator(BaseCbGenerator):
         logging.info(f"Load procedure finished. {len(self.loaded_messages)} event(s) loaded.")
 
     def build_messages(self):
-        logging.debug(f'Building {len(self.loaded_messages)} event(s) loaded.')
+        logging.info(f'Building {len(self.loaded_messages)} event(s) loaded.')
 
         self._reset_build_status()
         self._init_plugin_status()
@@ -261,7 +256,7 @@ class InGameGenerator(BaseCbGenerator):
         logging.info(f"Build procedure finished. {len(self.built_function)} command(s) built.")
 
     def build_simulate(self):
-        logging.debug(f'Simulating {len(self.loaded_messages)} event(s) loaded.')
+        logging.info(f'Simulating {len(self.loaded_messages)} event(s) loaded.')
 
         self.tick_cache.clear()
         port = mido.open_output()
@@ -357,7 +352,7 @@ class RealTimeGenerator(BaseCbGenerator):
         super(RealTimeGenerator, self).__init__(*args, **kwargs)
 
     def load_messages(self):
-        logging.debug("Loading message(s) from the MIDI file.")
+        logging.info("Loading message(s) from the MIDI file.")
 
         # Clear loaded items
         self.loaded_messages.clear()
@@ -366,9 +361,9 @@ class RealTimeGenerator(BaseCbGenerator):
         for index, message in enumerate(self):
             if message.is_meta:
                 if message.type == "time_signature":
-                    logging.debug(f"MIDI file timing info: {message.numerator}/{message.denominator}.")
+                    logging.info(f"MIDI file timing info: {message.numerator}/{message.denominator}.")
                 elif message.type == "key_signature":
-                    logging.debug(f"MIDI file pitch info: {message.key}.")
+                    logging.info(f"MIDI file pitch info: {message.key}.")
                 elif message.type in ("text", "copyright"):
                     logging.info(f"MIDI META message: {message.text}.")
                 continue
@@ -403,7 +398,7 @@ class RealTimeGenerator(BaseCbGenerator):
         logging.info(f"Load procedure finished. {len(self.loaded_messages)} event(s) loaded.")
 
     def build_messages(self):
-        logging.debug(f'Building {len(self.loaded_messages)} event(s).')
+        logging.info(f'Building {len(self.loaded_messages)} event(s).')
 
         self._reset_build_status()
         self._init_plugin_status()
@@ -490,7 +485,7 @@ if __name__ == '__main__':
     from mid.plugins import tweaks, piano, title
     from mid.frontends.wxv2 import WorkerXG
 
-    logging.basicConfig(level=logging.DEBUG)
+    logging.basicConfig(level=logging.INFO)
 
     generator = InGameGenerator(fp=r"D:\音乐\Only My Railgun(1).mid", frontend=lambda g: WorkerXG(g), plugins=[
         tweaks.FixedTime(

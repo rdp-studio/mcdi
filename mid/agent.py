@@ -15,14 +15,14 @@ class Server(object):
         if not os.path.isfile(mc_server_path):
             raise ValueError("Minecraft server must be a file!")
 
-        logging.debug(f"Initializing. Launching original server('{mc_server_path}') with pipe.")
+        logging.info(f"Initializing. Launching original server('{mc_server_path}') with pipe.")
 
         working_dir = os.path.split(mc_server_path)[0]
 
         if os.getcwd() != working_dir: os.chdir(working_dir)
         self.pipe = os.popen(f'java -jar -Xms{minmem}m -Xmx{maxmem}m "{mc_server_path}"')
 
-        logging.debug(f"Connecting to MIDI output device('{midi_device}'). That may take a little time.")
+        logging.info(f"Connecting to MIDI output device('{midi_device}'). That may take a little time.")
         self.port = mido.open_output(midi_device)
 
         self.valid_info_count = 0
@@ -58,7 +58,7 @@ class Server(object):
 
 
 if __name__ == '__main__':
-    logging.basicConfig(level=logging.DEBUG)
+    logging.basicConfig(level=logging.INFO)
 
     with Server(r"D:\Minecraft\Server\paper-243.jar", "VirtualMIDISynth #1 0") as server:
         server.mainloop()
