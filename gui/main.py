@@ -13,7 +13,7 @@ import requests
 from PyQt5.QtWidgets import QFileDialog, QApplication
 
 from gui.core import HtmlGuiWindow, run_in_new_thread
-from mid.rtserver import Server
+from mid.agent import Server
 
 sys.path.append("..")
 

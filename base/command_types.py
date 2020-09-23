@@ -71,3 +71,6 @@ class StopSound(Command):
         super(StopSound, self).__init__(
             f"stopsound {for_} {channel} {resource}"
         )
+
+class Particle(Command):
+    pass

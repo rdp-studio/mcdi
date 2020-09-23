@@ -1,308 +1,17 @@
-"""
-Requirements:
-Python 3.8.x
-- Package: mido
-Minecraft 1.15.x
-"""
-
-import logging
+import multiprocessing
 import pickle
-import uuid
-from abc import abstractmethod
+import re
+import threading
+import time
 from base64 import b64encode
-from collections import deque
 from math import ceil, floor
 from operator import itemgetter
+from zipfile import ZipFile
 
-from mido import MidiFile, merge_tracks, tick2second
+import mido
+import playsound
 
-from base.command_types import *
-from base.minecraft_types import *
-
-
-def float_range(start, stop, step):
-    while start < stop:
-        yield start
-        start += step
-
-
-def rand_uuid():
-    return str(uuid.uuid4()).replace("-", "")
-
-
-def rand_func(namespace):
-    return Function(
-        namespace, rand_uuid()
-    )
-
-
-def fast_copy(message, **overrides):  # Insecure!!
-    msg = message.__class__.__new__(message.__class__)
-    vars(msg).update(vars(message))
-    vars(msg).update(overrides.copy())
-    return msg
-
-
-class BaseGenerator(MidiFile):
-    STRING_UNSAFE = {
-        "\n": r'\n',
-        "\\": r"\\",
-        r'"': r'\"',
-    }
-
-    def __init__(self, fp, namespace="mcdi", identifier="music", **kwargs):
-        logging.debug("Initializing. Reading MIDI data.")
-
-        super(BaseGenerator, self).__init__(fp)
-
-        self.blank_ticks = 0
-        self.tick_rate = 20
-        self.tick_scale = 1
-        self.namespace = namespace
-        # Build variables
-        self.tick_cache = list()
-        self.loaded_tick_count = 0
-        # Function stuffs
-        self.loaded_messages = deque()
-        self.built_function = Function(
-            namespace, identifier
-        )
-        self.gentime_functions = list()
-        self.runtime_functions = list()
-        # Tick packages
-        self.single_tick_limit = 128
-
-        logging.debug("Preloading tracks.")
-        self._merged_track = merge_tracks(
-            self.tracks
-        )  # Preload tracks for speed
-        self._preloaded = list(
-            self._preload()
-        )  # Preload messages for speed
-        vars(self)["length"] = self.length
-
-        for key, value in kwargs.items():
-            if key not in vars(self).keys():
-                raise AttributeError(f"'{self.__class__.__name__}' object has no attribute '{key}'")
-            vars(self)[key] = value
-
-    def write_datapack(self, *args, **kwargs):
-        # Reduces lag
-        self.built_function.append(f"gamerule commandBlockOutput false")
-        self.built_function.append(f"gamerule sendCommandFeedback false")
-        self.built_function.insert(
-            0, f"gamerule maxCommandChainLength 2147483647"
-        )
-
-        logging.info(f"Writing {len(self.built_function)} command(s) built.")
-
-        for i, function in enumerate(self.gentime_functions):  # These runs with the build func.
-            self.built_function.append(f"function {function.namespace}:{function.identifier}")
-
-        self.built_function.to_pack(*args, **kwargs)  # Save to datapack
-
-        for function in self.gentime_functions + self.runtime_functions:
-            function.to_pack(*args, **kwargs)  # Save these to datapack
-
-        logging.info("Write procedure finished. Now enjoy your music!")
-
-    def _preload(self):  # Insecure!!
-        tempo = 5e5
-
-        for msg in self._merged_track:
-            yield fast_copy(
-                msg, time=tick2second(msg.time, self.ticks_per_beat, tempo) if msg.time > 0 else 0
-            )
-
-            if msg.type == 'set_tempo':
-                tempo = msg.tempo
-
-    def __iter__(self):  # Insecure!!
-        return iter(self._preloaded)
-
-
-class BaseCbGenerator(BaseGenerator):
-    def __init__(self, plugins, *args, **kwargs):
-        if plugins is None:
-            self.plugins = []
-        else:
-            self.plugins = list(plugins)
-
-        self.wrap_length = 128
-        # Build variables
-        self.tick_index = 0
-        # Plugin stuffs
-        self.built_tick_count = 0
-        self.y_axis_index = 0
-        self.build_axis_index = 0
-        self.wrap_axis_index = 0
-        self.wrap_state = False
-        self.is_first_tick = False
-        self.is_last_tick = False
-
-        super(BaseCbGenerator, self).__init__(*args, **kwargs)
-
-        # Tick packages
-        self._use_function_array = False  # * Experimental *
-        self._auto_function_array = True  # * Experimental *
-        self.current_tick_pkg = rand_func(self.namespace)
-
-        self.schedules = {}
-
-    def _add_tick_package(self):
-        self.runtime_functions.append(pkg := self.current_tick_pkg)
-        self._set_command_block(
-            command=f"function {self.namespace}:{pkg.identifier}"
-        )
-        self.current_tick_pkg = rand_func(self.namespace)
-
-    def add_tick_command(self, command=None, *args, **kwargs):
-        if self._use_function_array:  # Use functions to build music
-            return self.current_tick_pkg.append(command=command)
-        self._set_command_block(command=command, *args, **kwargs)
-
-    def _set_command_block(self, x_shift=None, y_shift=None, z_shift=None, chain=1, auto=1, command=None, facing="up"):
-        if x_shift is None:
-            x_shift = self.build_axis_index
-        if y_shift is None:
-            y_shift = self.y_axis_index
-        if z_shift is None:
-            z_shift = self.wrap_axis_index
-        if command is None:
-            return None
-
-        for unsafe, alternative in self.STRING_UNSAFE.items():
-            command = str(command).replace(unsafe, alternative)
-
-        self.built_function.append(
-            f'setblock ~{x_shift} ~{y_shift} ~{z_shift} minecraft:{"chain_" if chain else ""}command_block[facing='
-            f'{facing}]{{auto:{"true" if auto else "false"},Command:"{command}",LastOutput:false,TrackOutput:false}}'
-        )
-
-        self.y_axis_index += 1
-
-    @property
-    def use_function_array(self):
-        return self._use_function_array
-
-    @use_function_array.setter
-    def use_function_array(self, value):
-        if value:
-            warnings.warn(RuntimeWarning(
-                "Function array is a unstable feature and you may *NOT* commit a issue for that."
-            ))
-        self._use_function_array = value
-
-    @property
-    def auto_function_array(self):
-        return self._auto_function_array
-
-    @auto_function_array.setter
-    def auto_function_array(self, value):
-        if value:
-            warnings.warn(RuntimeWarning(
-                "Function array is a unstable feature and you may *NOT* commit a issue for that."
-            ))
-        self._auto_function_array = value
-
-    def _reset_build_status(self):
-        self.built_function.clear()
-
-        # Clear built items
-        self.tick_cache.clear()
-        self.built_tick_count = 0
-
-        self.tick_index = 0
-        self.y_axis_index = 0
-        self.build_axis_index = 0
-        self.wrap_axis_index = 0
-        self.is_first_tick = self.is_last_tick = False
-
-    def _init_plugin_status(self):
-        for plugin in self.plugins:
-            for dependency in plugin.__dependencies__:
-                assert dependency in tuple(
-                    map(type, self.plugins)), f"Dependency {dependency} of {plugin} is required, but not found."
-            plugin.dependency_connect(filter(lambda x: type(x) in plugin.__dependencies__, self.plugins))
-            for conflict in plugin.__conflicts__:
-                assert conflict not in tuple(
-                    map(type, self.plugins)), f"Conflict {conflict} of {plugin} is strictly forbidden, but found."
-            plugin.init(self)
-
-    def _update_build_status(self):
-        self.build_axis_index = self.built_tick_count % self.wrap_length  # For plugins
-        self.wrap_axis_index = self.built_tick_count // self.wrap_length  # For plugins
-        self.wrap_state = (self.built_tick_count + 1) % self.wrap_length == 0
-        self.is_first_tick = self.is_last_tick = False
-
-        if self.tick_index == -self.blank_ticks:
-            self.is_first_tick = True
-        if self.tick_index == self.loaded_tick_count:
-            self.is_last_tick = True
-
-        if self.wrap_state:
-            self._set_command_block(  # Row to wrap
-                chain=0, auto=0, command=f"setblock ~{1 - self.wrap_length} ~-1 ~1 minecraft:redstone_block")
-        else:
-            self._set_command_block(  # Ordinary row
-                chain=0, auto=0, command="setblock ~1 ~-1 ~ minecraft:redstone_block")
-
-        self._set_command_block(command="setblock ~ ~-2 ~ minecraft:air replace")  # Remove redstone block
-
-        if self.auto_function_array:
-            if len(self.tick_cache) > 127:
-                self.current_tick_pkg = rand_func(self.namespace)
-                self._use_function_array = True
-            else:
-                self._use_function_array = False
-
-    def _execute_schedules(self):
-        if self.tick_index in self.schedules.keys():
-            for i, x, y, z in self.schedules[self.tick_index]:
-                x, y, z = x(self) if x else 0, y(self) if y else 0, z(self) if z else 0
-                self.add_tick_command(command=f"execute positioned ~{x} ~{y} ~{z} run {i}")
-            del self.schedules[self.tick_index]
-
-    def _reload_build_status(self):
-        if self._use_function_array:
-            self._add_tick_package()
-
-        # Get ready for next tick
-        self.built_tick_count += 1
-        self.tick_cache.clear()
-        self.y_axis_index = 0
-
-    # Plugin APIs
-
-    def schedule(self, dt, command, x=None, y=None, z=None):
-        if self.tick_index + dt not in self.schedules.keys():
-            self.schedules[self.tick_index + dt] = []
-
-        self.schedules[self.tick_index + dt].append((command, x, y, z))
-
-    @abstractmethod
-    def on_notes(self):
-        pass
-
-    @abstractmethod
-    def off_notes(self):
-        pass
-
-    @abstractmethod
-    def current_on_notes(self):
-        pass
-
-    @abstractmethod
-    def current_off_notes(self):
-        pass
-
-    @abstractmethod
-    def future_on_notes(self, tick=None, ch=None):
-        pass
-
-    @abstractmethod
-    def future_off_notes(self, tick=None, ch=None):
-        pass
+from mid.klass import *
 
 
 class InGameGenerator(BaseCbGenerator):
@@ -537,7 +246,6 @@ class InGameGenerator(BaseCbGenerator):
                     break
                 if message["type"] == "note_on":
                     self.add_tick_command(command=self.get_play_cmd(message))
-
                 elif message["type"] == "note_off":
                     self.add_tick_command(command=self.get_stop_cmd(message))
 
@@ -551,6 +259,46 @@ class InGameGenerator(BaseCbGenerator):
                 logging.info(f"Built {self.tick_index} tick(s), {self.loaded_tick_count + 1} tick(s) in all.")
 
         logging.info(f"Build procedure finished. {len(self.built_function)} command(s) built.")
+
+    def build_simulate(self):
+        logging.debug(f'Simulating {len(self.loaded_messages)} event(s) loaded.')
+
+        self.tick_cache.clear()
+        port = mido.open_output()
+        programs = [0 for i in range(16)]
+
+        for self.tick_index in range(-self.blank_ticks, self.loaded_tick_count + 1):
+            from_ = time.time()
+            while (messages := self.loaded_messages) and messages[0]["tick"] == self.tick_index:
+                self.tick_cache.append(self.loaded_messages.popleft())  # Deque object is used to improve performance
+
+            for i, message in enumerate(self.tick_cache):
+                if i > self.single_tick_limit and not (self.is_first_tick or self.is_last_tick):
+                    break
+                if message["type"] == "note_on":
+                    if message["ch"] != 9 and programs[message["ch"]] != message["program"]:
+                        port.send(
+                            mido.Message(type="program_change", channel=message["ch"], program=message["program"] - 1)
+                        )
+                    port.send(mido.Message(
+                        type="note_on", note=message["note"], channel=message["ch"], velocity=int(message["v"])
+                    ))
+                elif message["type"] == "note_off":
+                    port.send(mido.Message(type="note_off", note=message["note"], channel=message["ch"]))
+
+            elapsed = time.time() - from_
+
+            if (x := 1 / self.tick_rate * self.tick_scale - elapsed) > 0:
+                time.sleep(x)
+
+            self.tick_cache.clear()
+
+            if self.tick_index % 100 == 0:  # Show progress
+                logging.info(f"Simulated {self.tick_index} tick(s), {self.loaded_tick_count + 1} tick(s) in all.")
+
+        if os.path.exists("./TEMP"): os.remove("./TEMP")
+
+        logging.info(f"Simulate procedure finished.")
 
     def get_play_cmd(self, message):
         return self.frontend.get_play_cmd(**message)
@@ -740,11 +488,11 @@ class RealTimeGenerator(BaseCbGenerator):
 
 if __name__ == '__main__':
     from mid.plugins import tweaks, piano, title
-    from mid.frontends import WorkerXG
+    from mid.frontends.wxv2 import WorkerXG
 
     logging.basicConfig(level=logging.DEBUG)
 
-    generator = InGameGenerator(fp=r"D:\音乐\Flower Dance.mid", frontend=lambda g: WorkerXG(g), plugins=[
+    generator = InGameGenerator(fp=r"D:\音乐\Only My Railgun(1).mid", frontend=lambda g: WorkerXG(g), plugins=[
         tweaks.FixedTime(
             value=18000
         ),
@@ -786,5 +534,7 @@ if __name__ == '__main__':
     generator.auto_tick_rate(base=40)
     generator.make_note_links()
     generator.load_messages()
+    generator.build_simulate()
+    exit()
     generator.build_messages()
     generator.write_datapack(r"D:\Minecraft\Client\.minecraft\versions\fabric-loader-0.9.2+build.206-1.16.2\saves\MCDI")
