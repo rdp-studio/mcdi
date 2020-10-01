@@ -9,8 +9,10 @@ import logging
 import uuid
 from abc import abstractmethod
 from collections import deque
+from math import floor, ceil
 
-from mido import MidiFile, merge_tracks, tick2second
+from mido import MidiFile, tick2second, MidiTrack
+from mido.midifiles.tracks import fix_end_of_track
 
 from base.command_types import *
 from base.minecraft_types import *
@@ -37,6 +39,31 @@ def fast_copy(message, **overrides):  # Insecure!!
     vars(msg).update(vars(message))
     vars(msg).update(overrides.copy())
     return msg
+
+
+def _to_abstime(messages):
+    now = 0
+    for msg in messages:
+        now += msg.time
+        yield fast_copy(msg, time=now)
+
+
+def _to_reltime(messages):
+    now = 0
+    for msg in messages:
+        delta = msg.time - now
+        yield fast_copy(msg, time=delta)
+        now = msg.time
+
+
+def fast_merge(tracks):
+    messages = []
+    for track in tracks:
+        messages.extend(_to_abstime(track))
+
+    messages.sort(key=lambda msg: msg.time)
+
+    return MidiTrack(fix_end_of_track(_to_reltime(messages)))
 
 
 class BaseGenerator(MidiFile):
@@ -69,7 +96,7 @@ class BaseGenerator(MidiFile):
         self.single_tick_limit = 128
 
         logging.debug("Preloading tracks.")
-        self._merged_track = merge_tracks(
+        self._merged_track = fast_merge(
             self.tracks
         )  # Preload tracks for speed
         self._preloaded = list(
@@ -85,7 +112,6 @@ class BaseGenerator(MidiFile):
     def write_datapack(self, *args, **kwargs):
         # Reduces lag
         self.built_function.append(f"gamerule commandBlockOutput false")
-        self.built_function.append(f"gamerule sendCommandFeedback false")
         self.built_function.insert(
             0, f"gamerule maxCommandChainLength 2147483647"
         )
@@ -118,7 +144,7 @@ class BaseGenerator(MidiFile):
 
 
 class BaseCbGenerator(BaseGenerator):
-    def __init__(self, plugins, *args, **kwargs):
+    def __init__(self, plugins=None, *args, **kwargs):
         if plugins is None:
             self.plugins = []
         else:
@@ -144,6 +170,40 @@ class BaseCbGenerator(BaseGenerator):
         self.current_tick_pkg = rand_func(self.namespace)
 
         self.schedules = {}
+
+    def auto_tick_rate(self, duration=None, tolerance=5, step=.01, base=20, strict=False):
+        if not duration:  # Calculate the length myself
+            duration = self.length
+
+        logging.info("Try finding the best tick rate.")
+
+        max_allow = base + base * (tolerance / duration)  # Max acceptable tick rate
+        min_allow = base - base * (tolerance / duration)  # Min acceptable tick rate
+        logging.info(f"Maximum and minimum tick rate: {max_allow}, {min_allow}.")
+
+        min_time_diff = 1  # No bigger than 1 possible
+        best_tick_rate = base  # The no-choice fallback
+        maximum = floor(max_allow) if strict else max_allow  # Rounded max acceptable tick rate
+        minimum = ceil(min_allow) if strict else min_allow  # Rounded min acceptable tick rate
+
+        for i in float_range(minimum, maximum, step):
+            timestamp = message_count = round_diff_sum = 0
+
+            for message in self:
+                round_diff_sum += abs(round(raw := (timestamp * i)) - raw)
+                timestamp += message.time
+                message_count += 1
+            round_diff_sum /= message_count
+
+            if round_diff_sum < min_time_diff:
+                min_time_diff = round_diff_sum
+                best_tick_rate = float(i)
+
+            logging.info(f"Tick rate = {i}, round difference = {round_diff_sum}.")
+
+        self.tick_rate = best_tick_rate
+
+        logging.info(f"The best tick rate found: {best_tick_rate}.")
 
     def _add_tick_package(self):
         self.runtime_functions.append(pkg := self.current_tick_pkg)
@@ -245,6 +305,7 @@ class BaseCbGenerator(BaseGenerator):
 
         self._set_command_block(command="setblock ~ ~-2 ~ minecraft:air replace")  # Remove redstone block
 
+    def _update_farray_status(self):
         if self.auto_function_array:
             if len(self.tick_cache) > 127:
                 self.current_tick_pkg = rand_func(self.namespace)

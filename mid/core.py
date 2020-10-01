@@ -1,4 +1,3 @@
-import pickle
 import time
 from base64 import b64encode
 from math import ceil, floor
@@ -29,40 +28,6 @@ class InGameGenerator(BaseCbGenerator):
         self.note_links = {}
 
         super(InGameGenerator, self).__init__(*args, **kwargs)
-
-    def auto_tick_rate(self, duration=None, tolerance=5, step=.01, base=20, strict=False):
-        if not duration:  # Calculate the length myself
-            duration = self.length
-
-        logging.info("Try finding the best tick rate.")
-
-        max_allow = base + base * (tolerance / duration)  # Max acceptable tick rate
-        min_allow = base - base * (tolerance / duration)  # Min acceptable tick rate
-        logging.info(f"Maximum and minimum tick rate: {max_allow}, {min_allow}.")
-
-        min_time_diff = 1  # No bigger than 1 possible
-        best_tick_rate = base  # The no-choice fallback
-        maximum = floor(max_allow) if strict else max_allow  # Rounded max acceptable tick rate
-        minimum = ceil(min_allow) if strict else min_allow  # Rounded min acceptable tick rate
-
-        for i in float_range(minimum, maximum, step):
-            timestamp = message_count = round_diff_sum = 0
-
-            for message in self:
-                round_diff_sum += abs(round(raw := (timestamp * i)) - raw)
-                timestamp += message.time
-                message_count += 1
-            round_diff_sum /= message_count
-
-            if round_diff_sum < min_time_diff:
-                min_time_diff = round_diff_sum
-                best_tick_rate = float(i)
-
-            logging.info(f"Tick rate = {i}, round difference = {round_diff_sum}.")
-
-        self.tick_rate = best_tick_rate
-
-        logging.info(f"The best tick rate found: {best_tick_rate}.")
 
     def make_note_links(self):
         logging.info("Making on-off note links.")
@@ -236,6 +201,8 @@ class InGameGenerator(BaseCbGenerator):
             while (messages := self.loaded_messages) and messages[0]["tick"] == self.tick_index:
                 self.tick_cache.append(self.loaded_messages.popleft())  # Deque object is used to improve performance
 
+            self._update_farray_status()
+
             for i, message in enumerate(self.tick_cache):
                 if i > self.single_tick_limit and not (self.is_first_tick or self.is_last_tick):
                     break
@@ -373,12 +340,12 @@ class RealTimeGenerator(BaseCbGenerator):
             )
             self.loaded_tick_count = max(self.loaded_tick_count, int(tick_time))
 
-            shift = (tick_time - int(tick_time)) / self.tick_rate * self.tick_scale
-            pkl_message = b64encode(pickle.dumps(fast_copy(message, time=shift))).decode()
+            delta_time = (tick_time - int(tick_time)) / self.tick_rate * self.tick_scale
 
             message_dict = {
-                "msg": pkl_message,
+                "msg": message.bin(),
                 "tick": int(tick_time),
+                "delta": delta_time,
                 "type": message.type,
             }
 
@@ -409,10 +376,14 @@ class RealTimeGenerator(BaseCbGenerator):
             while (messages := self.loaded_messages) and messages[0]["tick"] == self.tick_index:
                 self.tick_cache.append(self.loaded_messages.popleft())  # Deque object is used to improve performance
 
+            self._update_farray_status()
+
             for i, message in enumerate(self.tick_cache):
                 if i > self.single_tick_limit and not (self.is_first_tick or self.is_last_tick):
                     break
-                self.add_tick_command(command=f"say !{message['msg']}")
+                self.add_tick_command(
+                    command=f'mopp device send "{b64encode(message["msg"]).decode()}"'
+                )
 
             for plugin in self.plugins:  # Execute plugin
                 plugin.exec(self)
@@ -482,54 +453,10 @@ class RealTimeGenerator(BaseCbGenerator):
 
 
 if __name__ == '__main__':
-    from mid.plugins import tweaks, piano, title
-    from mid.frontends.wxv2 import WorkerXG
-
     logging.basicConfig(level=logging.INFO)
 
-    generator = InGameGenerator(fp=r"D:\音乐\Only My Railgun(1).mid", frontend=lambda g: WorkerXG(g), plugins=[
-        tweaks.FixedTime(
-            value=18000
-        ),
-        tweaks.FixedRain(
-            value="clear"
-        ),
-        piano.PianoRoll(
-            block_type="wool"
-        ),
-        piano.PianoRollFirework(),
-        piano.PianoRollRenderer(
-            [
-                {
-                    "functions": [{
-                        "instance": piano.LineFunctionPreset()
-                    }],
-                    "channels": "*",
-                    "tracks": [],
-                }
-            ]
-        ),
-        tweaks.ProgressBar(
-            text="(。・∀・)ノ 进度条"
-        ),
-        title.MainTitle(
-            [
-                {
-                    "text": "Pre-release",
-                    "color": "blue"
-                }
-            ], {
-                "text": "By kworker"
-            }
-        ),
-        tweaks.Viewport(
-            *tweaks.Viewport.PRESET2
-        ),
-    ], wrap_length=float("inf"), single_tick_limit=2 ** 31 - 1)
-    generator.auto_tick_rate(base=40)
-    generator.make_note_links()
+    generator = RealTimeGenerator(fp=r"D:\音乐\Sister's Noise.mid", single_tick_limit=2 ** 31 - 1)
+    generator.auto_tick_rate()
     generator.load_messages()
-    generator.build_simulate()
-    exit()
     generator.build_messages()
-    generator.write_datapack(r"D:\Minecraft\Client\.minecraft\versions\fabric-loader-0.9.2+build.206-1.16.2\saves\MCDI")
+    generator.write_datapack(r"D:\桌面\fabric-example-mod-master\run\saves\TEST")
