@@ -7,7 +7,7 @@ To run this app, you need:
   + Package: mido (+ rtmidi-python)
   + Package: pillow (PIL)
   
-This app creates music by generating mcfunction(s), so only **Minecraft (Java Edition) 1.13 or newer** are supported. 
+This app creates musics by generating mcfunction(s). Only **Minecraft (Java Edition) 1.13 or newer** are supported. 
 
 ## See how cool this thing is!
 + Improved realtime generator
