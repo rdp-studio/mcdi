@@ -1,9 +1,5 @@
-import time
 from base64 import b64encode
-from math import ceil, floor
 from operator import itemgetter
-
-import mido
 
 from mid.klass import *
 
@@ -57,7 +53,7 @@ class InGameGenerator(BaseCbGenerator):
                     logging.warning(f"Bad MIDI file: off-note#{index} does not match on-note!")
                     continue
 
-                old_index = i = old_msg.link_index
+                old_index = _ = old_msg.link_index
                 self.note_links[old_index] = (
                     timestamp, old_msg.on_time, message
                 )
@@ -222,46 +218,6 @@ class InGameGenerator(BaseCbGenerator):
 
         logging.info(f"Build procedure finished. {len(self.built_function)} command(s) built.")
 
-    def build_simulate(self):
-        logging.info(f'Simulating {len(self.loaded_messages)} event(s) loaded.')
-
-        self.tick_cache.clear()
-        port = mido.open_output()
-        programs = [0 for i in range(16)]
-
-        for self.tick_index in range(-self.blank_ticks, self.loaded_tick_count + 1):
-            from_ = time.time()
-            while (messages := self.loaded_messages) and messages[0]["tick"] == self.tick_index:
-                self.tick_cache.append(self.loaded_messages.popleft())  # Deque object is used to improve performance
-
-            for i, message in enumerate(self.tick_cache):
-                if i > self.single_tick_limit and not (self.is_first_tick or self.is_last_tick):
-                    break
-                if message["type"] == "note_on":
-                    if message["ch"] != 9 and programs[message["ch"]] != message["program"]:
-                        port.send(
-                            mido.Message(type="program_change", channel=message["ch"], program=message["program"] - 1)
-                        )
-                    port.send(mido.Message(
-                        type="note_on", note=message["note"], channel=message["ch"], velocity=int(message["v"])
-                    ))
-                elif message["type"] == "note_off":
-                    port.send(mido.Message(type="note_off", note=message["note"], channel=message["ch"]))
-
-            elapsed = time.time() - from_
-
-            if (x := 1 / self.tick_rate * self.tick_scale - elapsed) > 0:
-                time.sleep(x)
-
-            self.tick_cache.clear()
-
-            if self.tick_index % 100 == 0:  # Show progress
-                logging.info(f"Simulated {self.tick_index} tick(s), {self.loaded_tick_count + 1} tick(s) in all.")
-
-        if os.path.exists("./TEMP"): os.remove("./TEMP")
-
-        logging.info(f"Simulate procedure finished.")
-
     def get_play_cmd(self, message):
         return self.frontend.get_play_cmd(**message)
 
@@ -270,17 +226,21 @@ class InGameGenerator(BaseCbGenerator):
 
     # Plugin APIs
 
-    def on_notes(self):
-        return tuple(filter(lambda message: message["type"] == "note_on", self.loaded_messages))  # Every tick
+    def on_notes(self, ch=None):
+        return tuple(filter(lambda message: message["type"] == "note_on" and (message["ch"] == ch if ch else True),
+                            self.loaded_messages))  # Every tick
 
-    def off_notes(self):
-        return tuple(filter(lambda message: message["type"] == "note_off", self.loaded_messages))  # Every tick
+    def off_notes(self, ch=None):
+        return tuple(filter(lambda message: message["type"] == "note_off" and (message["ch"] == ch if ch else True),
+                            self.loaded_messages))  # Every tick
 
-    def current_on_notes(self):
-        return tuple(filter(lambda message: message["type"] == "note_on", self.tick_cache))  # Only for this tick
+    def current_on_notes(self, ch=None):
+        return tuple(filter(lambda message: message["type"] == "note_on" and (message["ch"] == ch if ch else True),
+                            self.tick_cache))  # Only for this tick
 
-    def current_off_notes(self):
-        return tuple(filter(lambda message: message["type"] == "note_off", self.tick_cache))  # Only for this tick
+    def current_off_notes(self, ch=None):
+        return tuple(filter(lambda message: message["type"] == "note_off" and (message["ch"] == ch if ch else True),
+                            self.tick_cache))  # Only for this tick
 
     def _future_notes(self, type_, tick=None, ch=None):
         if tick is not None:
@@ -382,7 +342,7 @@ class RealTimeGenerator(BaseCbGenerator):
                 if i > self.single_tick_limit and not (self.is_first_tick or self.is_last_tick):
                     break
                 self.add_tick_command(
-                    command=f'mopp device send "{b64encode(message["msg"]).decode()}"'
+                    command=f'mopp device send raw "{b64encode(message["msg"]).decode()}"'
                 )
 
             for plugin in self.plugins:  # Execute plugin
@@ -398,50 +358,54 @@ class RealTimeGenerator(BaseCbGenerator):
 
     # Plugin APIs
 
-    def on_notes(self):
+    def on_notes(self, ch=None):
         return tuple(map(itemgetter("igc"),
-                         filter(lambda message: message["type"] == "note_on", self.loaded_messages)
+                         filter(lambda message: message["type"] == "note_on" and (
+                             message["igc"]["ch"] == ch if ch else True), self.loaded_messages)
                          )
                      )  # Every tick
 
-    def off_notes(self):
+    def off_notes(self, ch=None):
         return tuple(map(itemgetter("igc"),
-                         filter(lambda message: message["type"] == "note_off", self.loaded_messages)
+                         filter(lambda message: message["type"] == "note_off" and (
+                             message["igc"]["ch"] == ch if ch else True), self.loaded_messages)
                          )
                      )  # Every tick
 
-    def current_on_notes(self):
+    def current_on_notes(self, ch=None):
         return tuple(map(itemgetter("igc"),
-                         filter(lambda message: message["type"] == "note_on", self.tick_cache)
+                         filter(lambda message: message["type"] == "note_on" and (
+                             message["igc"]["ch"] == ch if ch else True), self.tick_cache)
                          )
                      )  # Only for this tick
 
-    def current_off_notes(self):
+    def current_off_notes(self, ch=None):
         return tuple(map(itemgetter("igc"),
-                         filter(lambda message: message["type"] == "note_off", self.tick_cache)
+                         filter(lambda message: message["type"] == "note_off" and (
+                             message["igc"]["ch"] == ch if ch else True), self.tick_cache)
                          )
                      )  # Only for this tick
 
     def _future_notes(self, type_, tick=None, ch=None):
+        found = float("inf")
+
         if tick is not None:
             for message in self.loaded_messages:
                 if message["type"] != type_:
                     continue
                 if message["tick"] < tick:
                     continue
-                if message["tick"] == tick and (message["ch"] == ch if ch else True):
-                    yield message["raw"]
+                if message["tick"] == tick and (message["igc"]["ch"] == ch if ch else True):
+                    yield message["igc"]
                 if message["tick"] > tick:
                     break
         else:
-            nearest_found = float("inf")
-
             for message in self.loaded_messages:
                 if message["type"] != type_:
                     continue
-                if message["tick"] <= nearest_found and (message["ch"] == ch if ch else True):
-                    nearest_found = message["tick"]
-                    yield message["raw"]
+                if message["tick"] <= found and (message["igc"]["ch"] == ch if ch else True):
+                    found = message["tick"]
+                    yield message["igc"]
                 else:
                     break
 
@@ -453,10 +417,56 @@ class RealTimeGenerator(BaseCbGenerator):
 
 
 if __name__ == '__main__':
+    from mid.plugins import tweaks, piano, title
+
     logging.basicConfig(level=logging.INFO)
 
-    generator = RealTimeGenerator(fp=r"D:\音乐\Sister's Noise.mid", single_tick_limit=2 ** 31 - 1)
-    generator.auto_tick_rate()
+    generator = RealTimeGenerator(fp=r"D:\音乐\We Don't Talk Anymore.mid", single_tick_limit=2 ** 31 - 1, plugins=[
+        tweaks.FixedTime(
+            value=18000
+        ),
+        tweaks.FixedRain(
+            value="clear"
+        ),
+        piano.PianoRoll(
+            block_type="wool"
+        ),
+        piano.PianoRollFirework(),
+        piano.PianoRollRenderer(
+            [
+                {
+                    "functions": [
+                        {
+                            "instance": piano.PowerFunctionPreset()
+                        },
+                        {
+                            "instance": piano.LineFunctionPreset()
+                        }
+                    ],
+                    "channels": [3],
+                    "tracks": [],
+                }
+            ]
+        ),
+        tweaks.ProgressBar(
+            text="(。・∀・)ノ 进度条"
+        ),
+        title.MainTitle(
+            [
+                {
+                    "text": "We don't talk anymore",
+                    "color": "blue"
+                }
+            ], {
+                "text": "PS：重点在于听，不在于视（）"
+            }
+        ),
+        tweaks.Viewport(
+            *tweaks.Viewport.PRESET2
+        ),
+    ])
+    generator.auto_tick_rate(base=30)
     generator.load_messages()
     generator.build_messages()
-    generator.write_datapack(r"D:\桌面\fabric-example-mod-master\run\saves\TEST")
+    generator.write_datapack(r"D:\Minecraft\Client\.minecraft\versions\fabric-loader-0.9.2+build.206-1.16.2\saves\MCDI")
+    # generator.write_datapack(r"D:\桌面\midiout-plus-plus\run\saves\TEST")

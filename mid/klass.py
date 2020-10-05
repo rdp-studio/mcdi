@@ -338,19 +338,19 @@ class BaseCbGenerator(BaseGenerator):
         self.schedules[self.tick_index + dt].append((command, x, y, z))
 
     @abstractmethod
-    def on_notes(self):
+    def on_notes(self, ch=None):
         pass
 
     @abstractmethod
-    def off_notes(self):
+    def off_notes(self, ch=None):
         pass
 
     @abstractmethod
-    def current_on_notes(self):
+    def current_on_notes(self, ch=None):
         pass
 
     @abstractmethod
-    def current_off_notes(self):
+    def current_off_notes(self, ch=None):
         pass
 
     @abstractmethod

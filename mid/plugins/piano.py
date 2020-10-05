@@ -89,12 +89,7 @@ class PianoRollFirework(Plugin):
             generator.runtime_functions.append(function)
 
     def exec(self, generator: BaseCbGenerator):
-        toplevel_note = {}  # Reduces lag, improves performance
-
         for on_note in (on_notes := generator.current_on_notes()[::-1]):
-            if on_note["note"] in toplevel_note.keys():
-                continue  # When not layered, toplevel notes only
-
             if len(on_notes) > self.effect_limit:
                 break  # Too much notes, no effect.
 
@@ -107,9 +102,6 @@ class PianoRollFirework(Plugin):
 
             generator.add_tick_command(
                 command=f"execute as @p positioned ~ ~{self.parent.axis_y_shift - generator.y_axis_index + y_layer} ~{z_shift} run function {generator.namespace}:pno_roll_effect{on_note['ch']}")  # Execute the effect
-
-            if not self.parent.layered:
-                toplevel_note[on_note["note"]] = True
 
     def dependency_connect(self, dependencies):
         self.parent = next(dependencies)
@@ -125,30 +117,6 @@ class PianoRollRenderer(Plugin):
                  expressions: "The pattern expressions(in lambda) for channels." = None,
                  dot_distance: "The distance between two particles in the patterns." = .3,
                  effect_limit: "Show effects only when note number lt this value." = 65535):
-        """
-        Expression Syntax:
-        {
-            "functions": [
-                Callable[
-                    Tuple[float, float, float],
-                    Tuple[float, float, float],
-                    float, BaseCbGenerator
-                ] -> Tuple[float, float, float, int, dict],
-                ...
-            ],
-            "channels": Union[list, "*"],
-            "tracks": Union[list, "*"],
-            "particle": Union[str, None],
-            "additional": {
-                "dx": ...,
-                "dy": ...,
-                "dz": ...,
-                "speed": ...,
-                ...
-            }
-        }
-        """
-
         self.parent: PianoRoll
         if expressions is None:
             self.expressions = []
@@ -180,13 +148,9 @@ class PianoRollRenderer(Plugin):
                 self.expr_mapping["tracks"][i] = expr
 
     def exec(self, generator: BaseCbGenerator):
-        toplevel_note = {}  # Reduces lag, improves performance
         rendered_notes = []
 
         for on_note in (on_notes := generator.current_on_notes()[::-1]):
-            if on_note["note"] in toplevel_note.keys():
-                continue  # When not layered, toplevel notes only
-
             if len(on_notes) > self.effect_limit:
                 break  # Too much notes, no effect.
 
@@ -213,9 +177,6 @@ class PianoRollRenderer(Plugin):
                 if nearest_future is not None:
                     self._render_note(on_note, nearest_future, generator)
                     rendered_notes.append(nearest_future)
-
-            if not self.parent.layered:
-                toplevel_note[on_note["note"]] = True
 
     def _render_note(self, on_note, future, generator: BaseCbGenerator):
         if self.parent.reverse_wrap:
