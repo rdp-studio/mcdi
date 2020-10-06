@@ -19,7 +19,7 @@ from base.minecraft_types import *
 
 
 def float_range(start, stop, step):
-    while start < stop:
+    while start <= stop if step > 0 else start >= stop:
         yield start
         start += step
 
@@ -99,14 +99,12 @@ class BaseGenerator(MidiFile):
         self._merged_track = fast_merge(
             self.tracks
         )  # Preload tracks for speed
-        self._preloaded = list(
-            self._preload()
-        )  # Preload messages for speed
+        self._preloaded = list(self._preload())
+        # Preload messages for speed
         vars(self)["length"] = self.length
 
         for key, value in kwargs.items():
-            if key not in vars(self).keys():
-                raise AttributeError(f"'{self.__class__.__name__}' object has no attribute '{key}'")
+            assert key in vars(self).keys(), f"'{self.__class__.__name__}' object has no attribute '{key}'"
             vars(self)[key] = value
 
     def write_datapack(self, *args, **kwargs):
@@ -162,13 +160,20 @@ class BaseCbGenerator(BaseGenerator):
         self.is_first_tick = False
         self.is_last_tick = False
 
+        # Tick package toggle
+        self._use_function_array = False  # * Experimental *
+        self._auto_function_array = False  # * Experimental *
+
         super(BaseCbGenerator, self).__init__(*args, **kwargs)
 
-        # Tick packages
-        self._use_function_array = False  # * Experimental *
-        self._auto_function_array = True  # * Experimental *
-        self.current_tick_pkg = rand_func(self.namespace)
+        if self._use_function_array:
+            self._auto_function_array = False
+        if self._auto_function_array:
+            self._use_function_array = False
 
+        # Tick package manager
+        self.current_tick_pkg = rand_func(self.namespace)
+        # Scheduler
         self.schedules = {}
 
     def auto_tick_rate(self, duration=None, tolerance=5, step=.01, base=20, strict=False):
@@ -213,7 +218,7 @@ class BaseCbGenerator(BaseGenerator):
         self.current_tick_pkg = rand_func(self.namespace)
 
     def add_tick_command(self, command=None, *args, **kwargs):
-        if self._use_function_array:  # Use functions to build music
+        if self._use_function_array:  # Use funcs to build music
             return self.current_tick_pkg.append(command=command)
         self._set_command_block(command=command, *args, **kwargs)
 
@@ -354,9 +359,9 @@ class BaseCbGenerator(BaseGenerator):
         pass
 
     @abstractmethod
-    def future_on_notes(self, tick=None, ch=None):
+    def future_on_notes(self, tick, ch=None):
         pass
 
     @abstractmethod
-    def future_off_notes(self, tick=None, ch=None):
+    def future_off_notes(self, tick, ch=None):
         pass

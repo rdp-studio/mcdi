@@ -25,6 +25,17 @@ class InGameGenerator(BaseCbGenerator):
 
         super(InGameGenerator, self).__init__(*args, **kwargs)
 
+    def _init_middle_status(self):
+        for middle in self.middles:
+            for dependency in middle.__dependencies__:
+                assert dependency in list(
+                    map(type, self.middles)), f"Dependency {dependency} of {middle} is required, but not found."
+            middle.dependency_connect(filter(lambda x: type(x) in middle.__dependencies__, self.middles))
+            for conflict in middle.__conflicts__:
+                assert conflict not in list(
+                    map(type, self.middles)), f"Conflict {conflict} of {middle} is strictly forbidden, but found."
+            middle.init(self)
+
     def make_note_links(self):
         logging.info("Making on-off note links.")
 
@@ -87,16 +98,7 @@ class InGameGenerator(BaseCbGenerator):
 
         # Clear loaded items
         self.loaded_messages.clear()
-
-        for middle in self.middles:
-            for dependency in middle.__dependencies__:
-                assert dependency in tuple(
-                    map(type, self.middles)), f"Dependency {dependency} of {middle} is required, but not found."
-            middle.dependency_connect(filter(lambda x: type(x) in middle.__dependencies__, self.middles))
-            for conflict in middle.__conflicts__:
-                assert conflict not in tuple(
-                    map(type, self.middles)), f"Conflict {conflict} of {middle} is strictly forbidden, but found."
-            middle.init(self)
+        self._init_middle_status()
 
         timestamp = message_count = 0
 
@@ -227,49 +229,37 @@ class InGameGenerator(BaseCbGenerator):
     # Plugin APIs
 
     def on_notes(self, ch=None):
-        return tuple(filter(lambda message: message["type"] == "note_on" and (message["ch"] == ch if ch else True),
-                            self.loaded_messages))  # Every tick
+        return list(filter(lambda message: message["type"] == "note_on" and (message["ch"] == ch if ch else True),
+                           self.loaded_messages))  # Every tick
 
     def off_notes(self, ch=None):
-        return tuple(filter(lambda message: message["type"] == "note_off" and (message["ch"] == ch if ch else True),
-                            self.loaded_messages))  # Every tick
+        return list(filter(lambda message: message["type"] == "note_off" and (message["ch"] == ch if ch else True),
+                           self.loaded_messages))  # Every tick
 
     def current_on_notes(self, ch=None):
-        return tuple(filter(lambda message: message["type"] == "note_on" and (message["ch"] == ch if ch else True),
-                            self.tick_cache))  # Only for this tick
+        return list(filter(lambda message: message["type"] == "note_on" and (message["ch"] == ch if ch else True),
+                           self.tick_cache))  # Only for this tick
 
     def current_off_notes(self, ch=None):
-        return tuple(filter(lambda message: message["type"] == "note_off" and (message["ch"] == ch if ch else True),
-                            self.tick_cache))  # Only for this tick
+        return list(filter(lambda message: message["type"] == "note_off" and (message["ch"] == ch if ch else True),
+                           self.tick_cache))  # Only for this tick
 
-    def _future_notes(self, type_, tick=None, ch=None):
-        if tick is not None:
-            for message in self.loaded_messages:
-                if message["type"] != type_:
-                    continue
-                if message["tick"] < tick:
-                    continue
-                if message["tick"] == tick and (message["ch"] == ch if ch else True):
-                    yield message
-                if message["tick"] > tick:
-                    break
-        else:
-            nearest_found = float("inf")
+    def _future_notes(self, type_, tick, ch=None):
+        for message in self.loaded_messages:
+            if message["type"] != type_:
+                continue
+            if message["tick"] < tick:
+                continue
+            if message["tick"] == tick and (message["ch"] == ch if ch else True):
+                yield message
+            if message["tick"] > tick:
+                break
 
-            for message in self.loaded_messages:
-                if message["type"] != type_:
-                    continue
-                if message["tick"] <= nearest_found and (message["ch"] == ch if ch else True):
-                    nearest_found = message["tick"]
-                    yield message
-                else:
-                    break
+    def future_on_notes(self, tick, ch=None):
+        return list(self._future_notes("note_on", ch))
 
-    def future_on_notes(self, tick=None, ch=None):
-        return self._future_notes("note_on", tick, ch)
-
-    def future_off_notes(self, tick=None, ch=None):
-        return self._future_notes("note_off", tick, ch)
+    def future_off_notes(self, tick, ch=None):
+        return list(self._future_notes("note_off", ch))
 
 
 class RealTimeGenerator(BaseCbGenerator):
@@ -359,61 +349,49 @@ class RealTimeGenerator(BaseCbGenerator):
     # Plugin APIs
 
     def on_notes(self, ch=None):
-        return tuple(map(itemgetter("igc"),
-                         filter(lambda message: message["type"] == "note_on" and (
-                             message["igc"]["ch"] == ch if ch else True), self.loaded_messages)
-                         )
-                     )  # Every tick
+        return list(map(itemgetter("igc"),
+                        filter(lambda message: message["type"] == "note_on" and (
+                            message["igc"]["ch"] == ch if ch else True), self.loaded_messages)
+                        )
+                    )  # Every tick
 
     def off_notes(self, ch=None):
-        return tuple(map(itemgetter("igc"),
-                         filter(lambda message: message["type"] == "note_off" and (
-                             message["igc"]["ch"] == ch if ch else True), self.loaded_messages)
-                         )
-                     )  # Every tick
+        return list(map(itemgetter("igc"),
+                        filter(lambda message: message["type"] == "note_off" and (
+                            message["igc"]["ch"] == ch if ch else True), self.loaded_messages)
+                        )
+                    )  # Every tick
 
     def current_on_notes(self, ch=None):
-        return tuple(map(itemgetter("igc"),
-                         filter(lambda message: message["type"] == "note_on" and (
-                             message["igc"]["ch"] == ch if ch else True), self.tick_cache)
-                         )
-                     )  # Only for this tick
+        return list(map(itemgetter("igc"),
+                        filter(lambda message: message["type"] == "note_on" and (
+                            message["igc"]["ch"] == ch if ch else True), self.tick_cache)
+                        )
+                    )  # Only for this tick
 
     def current_off_notes(self, ch=None):
-        return tuple(map(itemgetter("igc"),
-                         filter(lambda message: message["type"] == "note_off" and (
-                             message["igc"]["ch"] == ch if ch else True), self.tick_cache)
-                         )
-                     )  # Only for this tick
+        return list(map(itemgetter("igc"),
+                        filter(lambda message: message["type"] == "note_off" and (
+                            message["igc"]["ch"] == ch if ch else True), self.tick_cache)
+                        )
+                    )  # Only for this tick
 
-    def _future_notes(self, type_, tick=None, ch=None):
-        found = float("inf")
+    def _future_notes(self, type_, tick, ch=None):
+        for message in self.loaded_messages:
+            if message["type"] != type_:
+                continue
+            if message["tick"] < tick:
+                continue
+            if message["tick"] == tick and (message["igc"]["ch"] == ch if ch else True):
+                yield message["igc"]
+            if message["tick"] > tick:
+                break
 
-        if tick is not None:
-            for message in self.loaded_messages:
-                if message["type"] != type_:
-                    continue
-                if message["tick"] < tick:
-                    continue
-                if message["tick"] == tick and (message["igc"]["ch"] == ch if ch else True):
-                    yield message["igc"]
-                if message["tick"] > tick:
-                    break
-        else:
-            for message in self.loaded_messages:
-                if message["type"] != type_:
-                    continue
-                if message["tick"] <= found and (message["igc"]["ch"] == ch if ch else True):
-                    found = message["tick"]
-                    yield message["igc"]
-                else:
-                    break
+    def future_on_notes(self, tick, ch=None):
+        return list(self._future_notes("note_on", tick, ch))
 
-    def future_on_notes(self, tick=None, ch=None):
-        return self._future_notes("note_on", tick, ch)
-
-    def future_off_notes(self, tick=None, ch=None):
-        return self._future_notes("note_off", tick, ch)
+    def future_off_notes(self, tick, ch=None):
+        return list(self._future_notes("note_off", tick, ch))
 
 
 if __name__ == '__main__':
@@ -421,7 +399,7 @@ if __name__ == '__main__':
 
     logging.basicConfig(level=logging.INFO)
 
-    generator = RealTimeGenerator(fp=r"D:\音乐\We Don't Talk Anymore.mid", single_tick_limit=2 ** 31 - 1, plugins=[
+    generator = RealTimeGenerator(fp=r"D:\音乐\Midi Files\We Don't Talk Anymore.mid", plugins=[
         tweaks.FixedTime(
             value=18000
         ),
@@ -435,21 +413,55 @@ if __name__ == '__main__':
         piano.PianoRollRenderer(
             [
                 {
-                    "functions": [
+                    "funcs": [
                         {
-                            "instance": piano.PowerFunctionPreset()
+                            "instance": piano.HelixFunctionPreset(phase=0),
+                            "dot_dist": .1,
                         },
                         {
-                            "instance": piano.LineFunctionPreset()
+                            "instance": piano.HelixFunctionPreset(phase=180),
+                            "dot_dist": .1,
                         }
                     ],
                     "channels": [3],
+                    "tracks": [],
+                },
+                {
+                    "funcs": [
+                        {
+                            "instance": piano.OrbitFunctionPreset(),
+                            "dot_dist": .5,
+                            "particle": "soul_fire_flame"
+                        }
+                    ],
+                    "channels": [10],
+                    "tracks": [],
+                },
+                {
+                    "funcs": [
+                        {
+                            "instance": piano.PowerFunctionPreset(),
+                            "dot_dist": .2,
+                        }
+                    ],
+                    "channels": [1],
+                    "tracks": [],
+                },
+                {
+                    "funcs": [
+                        {
+                            "instance": piano.LineFunctionPreset(),
+                            "dot_dist": .2,
+                            "particle": "flame"
+                        }
+                    ],
+                    "channels": [9],
                     "tracks": [],
                 }
             ]
         ),
         tweaks.ProgressBar(
-            text="(。・∀・)ノ 进度条"
+            text="进度条丨Progress Bar"
         ),
         title.MainTitle(
             [
@@ -464,7 +476,7 @@ if __name__ == '__main__':
         tweaks.Viewport(
             *tweaks.Viewport.PRESET2
         ),
-    ])
+    ], single_tick_limit=2 ** 31 - 1, _use_function_array=True)
     generator.auto_tick_rate(base=30)
     generator.load_messages()
     generator.build_messages()

@@ -53,34 +53,31 @@ def rgb2hsv(r, g, b):
     return h, s, v
 
 
-class Directions(enum.Enum):
+class Dirs(enum.Enum):
     XY = 0
     YZ = 1
     XZ = 2
 
 
-class Model(enum.Enum):
+class Mdl(enum.Enum):
     RGB = 0
     HSV = 1
 
 
 class BlockGenerator(BaseGenerator):
-    def __init__(self, mappings, directions=Directions.XY, absolute=None, model=Model.RGB, *args, **kwargs):
+    def __init__(self, blkm, dirs=Dirs.XY, abs=None, mdl=Mdl.RGB, *args, **kwargs):
         super(BlockGenerator, self).__init__(*args, **kwargs)
 
-        self.mappings = mappings
-        self.absolute = absolute
-        self.directions = directions
-        self.model = model
+        self.blkm = blkm
+        self.abs = abs
+        self.dirs = dirs
+        self.mdl = mdl
 
     def build_pixels(self, resample=Image.LANCZOS):
-        if self.img.width != self.x and self.img.height != self.y:
-            logging.info(f"Resizing the picture to {self.x}x{self.y}.")
-            self.img = self.img.resize((self.x, self.y), resample=resample)
-        else:
-            logging.info("Resampleing is not required. Continue.")
-
         logging.info(f"Loading {(pixel_count := self.x * self.y)} pixels.")
+
+        if self.img.width != self.x and self.img.height != self.y:
+            self.img = self.img.resize((self.x, self.y), resample=resample)
         pixels = self.img.load()
 
         logging.info(f"Building {pixel_count} pixels loaded.")
@@ -90,15 +87,15 @@ class BlockGenerator(BaseGenerator):
                 pixel = pixels[x, y]
                 nearest_item = None
                 minimums = 255 * 3 + 1
-                for mapping in self.mappings:
+                for mapping in self.blkm:
                     for item in mapping:  # Calculates the difference
-                        if self.model == Model.RGB:
+                        if self.mdl == Mdl.RGB:
                             color = item["color"]
                             r_diff = abs(color[0] - pixel[0])
                             g_diff = abs(color[1] - pixel[1])
                             b_diff = abs(color[2] - pixel[2])
                             diff = r_diff + g_diff + b_diff
-                        elif self.model == Model.HSV:
+                        elif self.mdl == Mdl.HSV:
                             c_h, c_s, c_v = rgb2hsv(*item["color"])
                             p_h, p_s, p_v = rgb2hsv(*pixel[:3])
                             h_diff = abs(c_h - p_h) / 360 * 255
@@ -106,7 +103,7 @@ class BlockGenerator(BaseGenerator):
                             v_diff = abs(c_v - p_v) * 255
                             diff = h_diff + s_diff + v_diff
                         else:
-                            raise TypeError(f"Unknown color model: {self.model}")
+                            raise TypeError(f"Unknown color model: {self.mdl}")
                         if diff < minimums:
                             minimums = diff
                             nearest_item = item
@@ -119,27 +116,27 @@ class BlockGenerator(BaseGenerator):
         logging.info("Build procedure finished.")
 
     def set_block(self, x, y, block):
-        if self.directions == Directions.XY:
-            if not self.absolute:
+        if self.dirs == Dirs.XY:
+            if not self.abs:
                 self.built_function.append(f"setblock ~{x} ~{self.y - y - 1} ~ minecraft:{block} replace")
             else:
-                x_shift, y_shift, z_shift = self.absolute
+                x_shift, y_shift, z_shift = self.abs
                 self.built_function.append(
                     f"setblock {x + x_shift} {self.y - y - 1 + y_shift} {z_shift} minecraft:{block} replace"
                 )
-        elif self.directions == Directions.YZ:
-            if not self.absolute:
+        elif self.dirs == Dirs.YZ:
+            if not self.abs:
                 self.built_function.append(f"setblock ~ ~{x} ~{self.y - y - 1} minecraft:{block} replace")
             else:
-                x_shift, y_shift, z_shift = self.absolute
+                x_shift, y_shift, z_shift = self.abs
                 self.built_function.append(
                     f"setblock {z_shift} {x + x_shift} {self.y - y - 1 + y_shift} minecraft:{block} replace"
                 )
-        elif self.directions == Directions.XZ:
-            if not self.absolute:
+        elif self.dirs == Dirs.XZ:
+            if not self.abs:
                 self.built_function.append(f"setblock ~{x} ~ ~{self.y - y - 1} minecraft:{block} replace")
             else:
-                x_shift, y_shift, z_shift = self.absolute
+                x_shift, y_shift, z_shift = self.abs
                 self.built_function.append(
                     f"setblock {x + x_shift} {z_shift} {self.y - y - 1 + y_shift} minecraft:{block} replace"
                 )

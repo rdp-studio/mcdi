@@ -1,1 +1,0 @@
-summon minecraft:firework_rocket ~ ~1 ~ {FireworksItem:{tag:{Fireworks:{Flight:0,Explosions:[{Type:4,Colors:[I;47316],FadeColors:[I;47316]}]}},id:"minecraft:firework_rocket",Count:1},Life:0,LifeTime:0}

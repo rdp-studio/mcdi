@@ -54,7 +54,7 @@ class Vanilla(Frontend):
             logging.warning(f"On note {note} at channel{ch} out of range! ")
             return None
 
-        x, y = get_phase_point((phase - 64) / 64 * 90, 2)
+        x, y = vector_build((phase - 64) / 64 * 90, 2)
 
         inst_index = floor(((note - 18) / 12) if note != 90 else 5)  # Get the instrument to use(in range)
         base_pitch = self.insts_pitch[(inst := self.insts[inst_index])]  # Get the pitch for the instrument

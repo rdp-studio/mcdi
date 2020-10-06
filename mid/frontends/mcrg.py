@@ -27,7 +27,7 @@ class Mcrg(Frontend):
         if not self.use_drum and ch == 9:
             return None
 
-        x, y = get_phase_point((phase - 64) / 64 * 90, 2)
+        x, y = vector_build((phase - 64) / 64 * 90, 2)
 
         return Execute(
             PlaySound(

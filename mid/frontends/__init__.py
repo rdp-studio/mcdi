@@ -1,12 +1,12 @@
 from math import radians, sin, cos
 
 
-def get_phase_point(t, r):
-    i = radians(abs(t) + 90)
+def vector_build(a, r):
+    i = radians(abs(a) + 90)
     rx, ry = cos(i), sin(i)
     dx, dy = rx * r, ry * r
 
-    if t < 0:
+    if a < 0:
         return dx, dy
     return -dx, dy
 

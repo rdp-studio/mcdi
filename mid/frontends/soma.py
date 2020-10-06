@@ -33,7 +33,7 @@ class Soma(Frontend):
             return None
 
         long = linked[0] - linked[1] > self.threshold if linked is not None else False
-        x, y = get_phase_point((phase - 64) / 64 * 90, 2)
+        x, y = vector_build((phase - 64) / 64 * 90, 2)
 
         return Execute(
             PlaySound(

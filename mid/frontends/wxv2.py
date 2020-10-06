@@ -33,7 +33,7 @@ class WorkerXG(Frontend):
         if not self.use_drum and ch == 9:
             return None
 
-        x, y = get_phase_point((phase - 64) / 64 * 90, 2)
+        x, y = vector_build((phase - 64) / 64 * 90, 2)
 
         return Execute(
             PlaySound(
@@ -79,7 +79,7 @@ class WorkerXG(Frontend):
                     volume_value, pitch_value = 127, 1
 
                 v = self.mapping[program - 1][note][duration - 1]
-                x, y = get_phase_point((phase - 64) / 64 * 90, 2)
+                x, y = vector_build((phase - 64) / 64 * 90, 2)
                 abv = v * volume_value / 127
 
                 self.parent.schedule(0, Execute(
