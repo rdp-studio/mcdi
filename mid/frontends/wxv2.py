@@ -15,16 +15,14 @@ class WorkerXG(Frontend):
                  use_stop: "Use the stopsound command." = True,
                  use_drum: "Use the MIDI drum channel." = True,
                  stop_drum: "Use stopsound for drum." = False,
-                 drum_stop_delay: "How long to delay stopsound for drum." = 40,
-                 use_old_context: "Use old context when fading a note." = True):
+                 old_cxt: "Use old context when fading a note." = True):
 
         super(WorkerXG, self).__init__()
         self.parent = parent
         self.use_stop = use_stop
         self.use_drum = use_drum
         self.stop_drum = stop_drum
-        self.drum_stop_delay = drum_stop_delay
-        self.use_old_context = use_old_context
+        self.old_cxt = old_cxt
 
         with open(os.path.join(os.path.split(__file__)[0], "wxlm.json")) as file:
             self.mapping = json.load(file)
@@ -53,7 +51,7 @@ class WorkerXG(Frontend):
             duration = round((linked[0] - linked[1]) / self.parent.tick_rate * self.parent.tick_scale * 20)
 
             if 1 <= duration <= 160 and program != 0:
-                if self.use_old_context:
+                if self.old_cxt:
                     program_mapping, volume_mapping, phase_mapping, pitch_mapping = linked[2].context
 
                     if linked[2].channel in volume_mapping.keys() and self.parent.gvol_enabled:  # Set volume
@@ -101,10 +99,10 @@ class WorkerXG(Frontend):
                 as_="@a", at="@s"
             )
         else:
-            self.parent.schedule(self.drum_stop_delay, Execute(
+            return Execute(
                 StopSound(
                     f"xg.drum.{note}",
                     channel="voice", for_="@s",
                 ),
                 as_="@a", at="@s"
-            ))
+            )

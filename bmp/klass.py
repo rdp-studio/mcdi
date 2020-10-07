@@ -1,4 +1,5 @@
 import logging
+from abc import abstractmethod
 
 from PIL import Image
 
@@ -13,6 +14,10 @@ class BaseGenerator(object):
         self.x = width
         self.y = height
         self.built_function = Function(namespace, func)
+
+    @abstractmethod
+    def build_pixels(self, resample=Image.LANCZOS):
+        pass
 
     def write_datapack(self, *args, **kwargs):
         logging.info(f"Writing {len(self.built_function)} command(s) built.")

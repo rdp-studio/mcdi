@@ -1,10 +1,3 @@
-"""
-Requirements:
-Python 3.8.x
-- Package: mido
-Minecraft 1.15.x
-"""
-
 import logging
 import uuid
 from abc import abstractmethod
