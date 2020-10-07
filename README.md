@@ -8,7 +8,7 @@
   + Python库：pillow
 这个库通过生成mcfunction文件来制作红石音乐。因此只支持**Minecraft（Java版）1.13 或更新**。
 
-###如何安装运行环境？
+### 如何安装运行环境？
 先[安装Python](https://www.liaoxuefeng.com/wiki/1016959663602400/1016959856222624) ，然后键入`pip install mido`和`pip install pillow`。
 
 
