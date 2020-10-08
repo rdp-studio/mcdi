@@ -289,11 +289,11 @@ class HelixFunctionPreset(FunctionPreset):  # Linear style gen.
 
 
 class OrbitFunctionPreset(FunctionPreset):  # Phase style gen.
-    def __init__(self, r_rng=.5, rad="random", dir_="auto"):
+    def __init__(self, r_rng=.5):
         self.r_rng = r_rng
-        self.rad: Any = rad
-        self.dir: Any = dir_
-        self.dirs = [False for _ in range(16)]
+        self.memory = [{
+            "cw": False
+        } for _ in range(16)]
 
     def __call__(self, c, n, dd: float, generator: BaseCbGenerator, _) -> Tuple[float, float, float, int, dict]:
         cx, cz, fx, fz = c + n
@@ -301,16 +301,7 @@ class OrbitFunctionPreset(FunctionPreset):  # Phase style gen.
         dz = fz - cz
 
         r_min = (dx ** 2 + dz ** 2) ** .5  # Minimal distance
-
-        if self.rad == "random":
-            rr = r_min * (1 + random.random() * self.r_rng)  # Random radius
-        elif isinstance(self.rad, (int, float)):
-            assert (rr := self.rad) >= r_min, "Radius too small."
-        elif isinstance(self.rad, function):
-            assert (rr := self.rad()) >= r_min, "Radius too small."
-        else:
-            raise RuntimeError("Invalid radius type.")
-
+        rr = r_min * (1 + random.random() * self.r_rng)
         ox1, oz1, ox2, oz2 = self.centre_build(cx, cz, fx, fz, rr)
         ox, oz = random.choice([(ox1, oz1), (ox2, oz2)])  # Random centre
         dox, doz = ox + rr - cx, oz - cz
@@ -324,17 +315,8 @@ class OrbitFunctionPreset(FunctionPreset):  # Phase style gen.
         if fz < oz:
             fo = 360 - fo  # Future O
 
-        if self.dir == "random":
-            cw = not (ccw := random.random() > .5)
-        elif self.dir == "cw":
-            cw, ccw = True, False
-        elif self.dir == "ccw":
-            cw, ccw = False, True
-        elif self.dir == "auto":
-            cw = self.dirs[_["ch"]]  # Memory
-            ccw = self.dirs[_["ch"]] = not cw
-        else:
-            raise RuntimeError("Invalid direction type.")
+        cw = self.memory[_["ch"]]["cw"]  # Memory
+        ccw = self.memory[_["ch"]]["cw"] = not cw
 
         s = degrees(asin(r_min / 2 / rr)) * 2
         if fo > co and ccw:

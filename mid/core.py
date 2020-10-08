@@ -1,3 +1,4 @@
+import time
 from base64 import b64encode
 from operator import itemgetter
 
@@ -415,47 +416,11 @@ if __name__ == '__main__':
                 {
                     "funcs": [
                         {
-                            "instance": piano.HelixFunctionPreset(phase=0),
-                            "dot_dist": .1,
-                        },
-                        {
-                            "instance": piano.HelixFunctionPreset(phase=180),
-                            "dot_dist": .1,
+                            "instance": piano.OrbitFunctionPreset(),
+                            "dot_dist": .5,
                         }
                     ],
                     "channels": [3],
-                    "tracks": [],
-                },
-                {
-                    "funcs": [
-                        {
-                            "instance": piano.OrbitFunctionPreset(),
-                            "dot_dist": .5,
-                            "particle": "soul_fire_flame"
-                        }
-                    ],
-                    "channels": [10],
-                    "tracks": [],
-                },
-                {
-                    "funcs": [
-                        {
-                            "instance": piano.PowerFunctionPreset(),
-                            "dot_dist": .2,
-                        }
-                    ],
-                    "channels": [1],
-                    "tracks": [],
-                },
-                {
-                    "funcs": [
-                        {
-                            "instance": piano.LineFunctionPreset(),
-                            "dot_dist": .2,
-                            "particle": "flame"
-                        }
-                    ],
-                    "channels": [9],
                     "tracks": [],
                 }
             ]
@@ -476,7 +441,7 @@ if __name__ == '__main__':
         tweaks.Viewport(
             *tweaks.Viewport.PRESET2
         ),
-    ], single_tick_limit=2 ** 31 - 1, _use_function_array=True)
+    ], single_tick_limit=2 ** 31 - 1)  # , _use_function_array=True)
     generator.auto_tick_rate(base=30)
     generator.load_messages()
     generator.build_messages()
