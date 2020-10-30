@@ -1,0 +1,543 @@
+{% extends "base.html" %}
+
+{% block head %}
+    <script>
+        function goToHome() {
+            $("#nav-midi").fadeOut("fast", function () {
+                $("#nav-settings").fadeOut("fast", function () {
+                    $("#nav-bmp").fadeOut("fast", function () {
+                        $("#nav-home").fadeIn("fast");
+                        $("#dash").addClass('pulse');
+                    });
+                });
+            });
+        }
+
+        function goToMIDI() {
+            $("#nav-home").fadeOut("fast", function () {
+                $("#nav-settings").fadeOut("fast", function () {
+                    $("#nav-bmp").fadeOut("fast", function () {
+                        $("#nav-midi").fadeIn("fast");
+                        $("#dash").removeClass('pulse');
+                    });
+                });
+            });
+        }
+
+        function goToBitmap() {
+            $("#nav-home").fadeOut("fast", function () {
+                $("#nav-midi").fadeOut("fast", function () {
+                    $("#nav-settings").fadeOut("fast", function () {
+                        $("#nav-bmp").fadeIn("fast");
+                        $("#dash").removeClass('pulse');
+                    });
+                });
+            });
+        }
+
+        function goToSettings() {
+            $("#nav-home").fadeOut("fast", function () {
+                $("#nav-midi").fadeOut("fast", function () {
+                    $("#nav-bmp").fadeOut("fast", function () {
+                        $("#nav-settings").fadeIn("fast");
+                        $("#dash").removeClass('pulse');
+                    });
+                });
+            });
+        }
+    </script>
+    <script src="/static/js/Chart.min.js"></script>
+{% endblock %}
+
+{% block body %}
+    <div class="root">
+        <div id="modal-license" class="modal">
+            <div class="modal-content">
+                <h4>开源协议</h4>
+                <pre id="license"></pre>
+            </div>
+            <div class="modal-footer">
+                <a href="#" class="modal-close waves-effect btn-flat">关闭</a>
+            </div>
+        </div>
+
+        <div id="modal-about" class="modal">
+            <div class="modal-content">
+                <h4>关于MCDI</h4>
+                <div id="about" style="text-align: center;">
+                    <img src="/static/img/logo.png" alt="MCDI" style="width: 5rem; height: 5rem;"/>
+
+                    <h1 style="padding-bottom: 0; margin-bottom: 0;">
+                        MCDI<small>(Ver1.0.1build1030)</small>
+                    </h1>
+
+                    <q style="padding-top: 0; margin-top: 0;" title="A2M和NBS都可以扔了（小声BB）">
+                        最强大的Minecraft音乐生成器。<small>（bushi</small>
+                    </q><br/>
+
+                    <small>
+                        <a href="#" id="about-l1">Github项目</a>&nbsp;
+                        <a href="#" id="about-l2">B站个人空间</a>&nbsp;
+                        <a href="#" id="about-l3">友情链接（RSM）</a>&nbsp;
+                    </small>
+                </div>
+            </div>
+
+            <div class="modal-footer">
+                <a href="#" class="modal-close waves-effect btn-flat">关闭</a>
+            </div>
+        </div>
+
+        <div id="modal-failure" class="modal">
+            <div class="modal-content">
+                <h4>害怕！</h4>
+                <div>
+                    MCDI感到害怕，因此无法进行生成。以下是调用堆栈。如果您认为这是一个漏洞，请提交一个<a href="#" id="issue">Issue</a>以便作者改进MCDI。感谢您的理解与支持。
+                </div>
+                <pre id="stack"></pre>
+            </div>
+
+            <div class="modal-footer">
+                <a href="#" class="modal-close waves-effect btn-flat">关闭</a>
+            </div>
+        </div>
+
+        <div id="modal-midi" class="modal">
+            <div class="modal-content">
+                <h4>高级设置</h4>
+                <div class="row">
+                    <div class="col s12"><h5>前端设置</h5></div>
+                    <div class="input-field col s12">
+                        <select id="frontend-list">
+                        </select>
+                        <label for="frontend-list">资源包前端</label>
+                    </div>
+                    <div class="col s12"><h5>结构设置</h5></div>
+                    <div class="input-field col s6">
+                        <label for="wrap-length">折行长度：米（0=不折行）</label>
+                        <input id="wrap-length" type="number" min="0">
+                    </div>
+                    <div class="input-field col s6">
+                        <label for="blank-ticks">留白时间：刻（0=不留白）</label>
+                        <input id="blank-ticks" type="number" min="0">
+                    </div>
+                    <p class="col s4">
+                        <label>
+                            <input class="with-gap" name="group" type="radio" id="no-fa"/>
+                            <span>不使用刻函数</span>
+                        </label>
+                    </p>
+                    <p class="col s4">
+                        <label>
+                            <input class="with-gap" name="group" type="radio" id="at-fa"/>
+                            <span>自动选择</span>
+                        </label>
+                    </p>
+                    <p class="col s4">
+                        <label>
+                            <input class="with-gap" name="group" type="radio" id="use-fa"/>
+                            <span>总使用刻函数</span>
+                        </label>
+                    </p>
+                    <div class="col s12"><h5>节奏设置</h5></div>
+                    <div class="input-field col s6">
+                        <label for="tick-rate">刻速率：刻/秒（太大会炸）</label>
+                        <input id="tick-rate" type="number" min="0">
+                    </div>
+                    <div class="input-field col s6">
+                        <label for="tick-scale">倍速：N倍（太小会炸）</label>
+                        <input id="tick-scale" type="number" min="0">
+                    </div>
+                    <p class="valign-wrapper col s6">
+                        <label style="transform: translateY(.8rem);">
+                            <input type="checkbox" id="auto-tick-rate" checked="checked"/>
+                            <span>弹性刻速率（推荐）</span>
+                        </label>
+                    </p>
+                    <div class="input-field col s6">
+                        <label for="tolerance">时长容差：秒</label>
+                        <input id="tolerance" type="number" min="0">
+                    </div>
+                    <div class="input-field col s6">
+                        <label for="step">刻速率步进：刻/秒（太小会炸）</label>
+                        <input id="step" type="number" min="0">
+                    </div>
+                    <div class="input-field col s6">
+                        <label for="base">基础刻速率：刻/秒（太大会炸）</label>
+                        <input id="base" type="number" min="0">
+                    </div>
+                    <div class="col s12"><h5>效果设置</h5></div>
+                    <p class="valign-wrapper col s12">
+                        <label style="transform: translateY(.8rem);">
+                            <input type="checkbox" id="note-links" checked="checked"/>
+                            <span>预加载音符链（在使用资源包时可计算音符长度，效果更佳）</span>
+                        </label>
+                    </p>
+                    <div class="col s12"><h5>细节设置</h5></div>
+                    <p class="col s6">
+                        <label style="transform: translateY(.8rem);">
+                            <input type="checkbox" id="use-program" checked="checked"/>
+                            <span>超控音色</span>
+                        </label>
+                    </p>
+                    <p class="col s6">
+                        <label style="transform: translateY(.8rem);">
+                            <input type="checkbox" id="use-g-volume" checked="checked"/>
+                            <span>超控全局音量</span>
+                        </label>
+                    </p>
+                    <p class="col s6">
+                        <label style="transform: translateY(.8rem);">
+                            <input type="checkbox" id="use-phase" checked="checked"/>
+                            <span>超控相位</span>
+                        </label>
+                    </p>
+                    <p class="col s6">
+                        <label style="transform: translateY(.8rem);">
+                            <input type="checkbox" id="use-pitch" checked="checked"/>
+                            <span>超控弯音轮</span>
+                        </label>
+                    </p>
+                    <div class="input-field col s6">
+                        <label for="volume-factor">音量倍率</label>
+                        <input id="volume-factor" type="number" min="0">
+                    </div>
+                    <div class="input-field col s6">
+                        <label for="pitch-factor">弯音倍率</label>
+                        <input id="pitch-factor" type="number" min="0">
+                    </div>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <a href="#" class="modal-close waves-effect btn-flat">关闭</a>
+            </div>
+        </div>
+
+        <div class="card root-card horizontal">
+            <div class="card-stacked main-tabs" id="nav-home">
+                <div class="card-content">
+                    <h1>欢迎使用MCDI。</h1>
+                    <div class="row">
+                        <div class="col s12">
+                            <p>在Dashboard里选择一个动作以开始。下方没有最近使用的内容。</p>
+                        </div>
+                        <div class="col s12">
+                            <ul id="recent">
+                            </ul>
+                        </div>
+                    </div>
+                </div>
+                <div class="card-action">
+                    <a class="modal-trigger" href="#modal-license">协议</a>
+                    <a class="modal-trigger" href="#modal-about">关于</a>
+                </div>
+            </div>
+
+            <div class="card-stacked main-tabs" id="nav-midi" style="display: none;">
+                <div class="card-content">
+                    <div>
+                        <ul class="tabs">
+                            <li class="tab col s3">
+                                <a href="#midi-file" id="midi-file-tab">文件</a>
+                            </li>
+                            <li class="tab col s3">
+                                <a href="#midi-plugin" id="midi-plugin-tab">插件</a>
+                            </li>
+                            <li class="tab col s3">
+                                <a href="#midi-middle" id="midi-middle-tab">中间件</a>
+                            </li>
+                        </ul>
+                    </div>
+                    <br/>
+                    <div id="midi-file">
+                        <div class="row">
+                            <div class="input-field col s12">
+                                <select id="midi-mc-save">
+                                </select>
+                                <label for="midi-mc-save">宁的世界</label>
+                            </div>
+                        </div>
+                        <div class="row">
+                            <div class="input-field col s12">
+                                <i class="material-icons prefix">library_music</i>
+                                <input id="midi-path" type="text">
+                                <label for="midi-path">宁的MIDI路径</label>
+                            </div>
+                        </div>
+                        <small>屑提示：在一个路径输入框上双击即可打开浏览窗口。</small>
+                    </div>
+                    <div id="midi-plugin">
+                        <div class="row">
+                            <div class="input-field col s12">
+                                <select id="plugin-list" multiple>
+                                </select>
+                                <label for="plugin-list">选择宁使用的插件</label>
+                            </div>
+                        </div>
+                        <div class="row" style="display: flex;">
+                            <div class="input-field col" style="flex: 2;">
+                                <select id="plugin-cfg-list">
+                                    <option value="" disabled selected>- 至少选择一个插件以开始配置 -</option>
+                                </select>
+                                <label for="plugin-cfg-list">配置宁的插件</label>
+                            </div>
+                            <div class="input-field col" style="flex: none;">
+                                <a class="waves-effect waves-light btn" id="plugin-chk-btn">刷新</a>
+                            </div>
+                            <div class="input-field col" style="flex: none;">
+                                <a class="waves-effect waves-light btn" id="plugin-cfg-btn">配置</a>
+                            </div>
+                        </div>
+                    </div>
+                    <div id="midi-middle">
+                        <div class="row">
+                            <div class="input-field col s12">
+                                <select id="middle-list" multiple>
+                                </select>
+                                <label for="middle-list">选择宁使用的中间件</label>
+                            </div>
+                        </div>
+                        <div class="row" style="display: flex;">
+                            <div class="input-field col" style="flex: 2;">
+                                <select id="middle-cfg-list">
+                                    <option value="" disabled selected>- 至少选择一个中间件以开始配置 -</option>
+                                </select>
+                                <label for="middle-cfg-list">配置宁的中间件</label>
+                            </div>
+                            <div class="input-field col" style="flex: none;">
+                                <a class="waves-effect waves-light btn" id="middle-chk-btn">刷新</a>
+                            </div>
+                            <div class="input-field col" style="flex: none;">
+                                <a class="waves-effect waves-light btn" id="middle-cfg-btn">配置</a>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                <div class="card-action">
+                    <a href="#" id="midi-run">生成<small>（并祈祷别崩溃）</small></a>
+                    <a href="#" class="grey-text">预览<small>（同理）</small></a>
+                </div>
+                <div class="overlay" id="midi-gen-overlay" style="display: none;">
+                    <div class="wrapper">
+                        <div class="progress">
+                            <div class="determinate" id="midi-gen-progress"></div>
+                        </div>
+                        <div>
+                            <h5>正在生成。请宁坐和放宽。</h5>
+                            <small>
+                                <span id="midi-gen-details"></span>&nbsp;<a id="midi-stop">取消</a>
+                            </small>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="card-stacked main-tabs" id="nav-bmp" style="display: none;">
+                <div class="card-content">
+                    <div class="row">
+                        <div class="input-field col s12">
+                            <select id="bmp-mc-save" disabled="disabled">
+                            </select>
+                            <label for="bmp-mc-save">宁的世界</label>
+                        </div>
+                    </div>
+                    <div class="row">
+                        <div class="input-field col s12">
+                            <i class="material-icons prefix">photo_library</i>
+                            <input id="bmp-path" type="text" disabled="disabled">
+                            <label for="bmp-path">宁的图像路径</label>
+                        </div>
+                    </div>
+                    <small>屑提示：在一个路径输入框上双击即可打开浏览窗口。</small>
+                </div>
+                <div class="card-action">
+                    <a href="#" class="grey-text">生成<small>（并祈祷别崩溃）</small></a>
+                    <a href="#" class="grey-text">预览<small>（同理）</small></a>
+                </div>
+            </div>
+
+            <div class="card-stacked main-tabs" id="nav-settings" style="display: none;">
+                <div class="card-content">
+                    <div>
+                        <ul class="tabs">
+                            <li class="tab col s3">
+                                <a href="#settings-general" id="settings-general-tab">通用</a>
+                            </li>
+                            <li class="tab col s3">
+                                <a href="#settings-midi" id="settings-midi-tab">MIDI生成</a>
+                            </li>
+                            <li class="tab col s3">
+                                <a href="#settings-bitmap" id="settings-bitmap-tab">图像生成</a>
+                            </li>
+                        </ul>
+                    </div>
+                    <br/>
+                    <div id="settings-general">
+                        <div class="row">
+                            <div class="input-field col s6">
+                                <i class="material-icons prefix">code</i>
+                                <input id="func-ns" type="text">
+                                <label for="func-ns">函数命名空间</label>
+                            </div>
+                            <div class="input-field col s6">
+                                <label>
+                                    <input type="checkbox" id="fast-copy-func" checked="checked"/>
+                                    <span>快速拷贝函数（小概率出现特性）</span>
+                                </label>
+                            </div>
+                        </div>
+                        <div class="row">
+                            <div class="input-field col s6">
+                                <i class="material-icons prefix">folder_open</i>
+                                <input id="mc-path" type="text">
+                                <label for="mc-path">游戏路径</label>
+                            </div>
+                            <div class="input-field col s6">
+                                <label>
+                                    <input type="checkbox" id="mojang-launcher" checked="checked"/>
+                                    <span>禁用版本独立（MOJANG启动器）</span>
+                                </label>
+                            </div>
+                        </div>
+                        <div class="row">
+                            <div class="input-field col s12">
+                                <select id="minecraft-ver">
+                                    <option value="" disabled selected>- 键入或浏览一个合法的路径以开始配置 -</option>
+                                </select>
+                                <label for="minecraft-ver">Minecraft版本</label>
+                            </div>
+                        </div>
+                        <small>屑提示：在一个路径输入框上双击即可打开浏览窗口。</small>
+                    </div>
+                    <div id="settings-midi">
+                        <div class="row">
+                            <div class="input-field col s6">
+                                <label>
+                                    <input class="with-gap" name="midi-type" type="radio" id="midi-type-ig"/>
+                                    <span>命令方块：使用原版资源包。</span>
+                                </label>
+                            </div>
+                            <div class="input-field col s6">
+                                <label>
+                                    <input class="with-gap" name="midi-type" type="radio" id="midi-type-rt"/>
+                                    <span>命令方块：使用MIDIOut++。</span>
+                                </label>
+                            </div>
+                        </div>
+                        <div class="row">
+                            <div class="input-field col s12">
+                                <label>
+                                    <input type="checkbox" id="auto-adjust" checked="checked"/>
+                                    <span>我希望MCDI为我自动调整好所有的参数：全自动调参，好听，没内味儿。（</span>
+                                </label>
+                            </div>
+                        </div>
+                        <div class="row">
+                            <div class="input-field col s12 center-align">
+                                <a class="waves-effect waves-light btn modal-trigger" href="#modal-midi">
+                                    <i class="material-icons left">build</i>高级设置
+                                </a>
+                            </div>
+                        </div>
+                    </div>
+                    <div id="settings-bitmap">
+                        <div class="row">
+                            <div class="input-field col s3">
+                                <label>
+                                    <input class="with-gap" name="bitmap-type" type="radio" id="bmp-type-blks-color"/>
+                                    <span>彩色方块</span>
+                                </label>
+                            </div>
+                            <div class="input-field col s3">
+                                <label>
+                                    <input class="with-gap" name="bitmap-type" type="radio" id="bmp-type-text-color"/>
+                                    <span>彩色文本</span>
+                                </label>
+                            </div>
+                            <div class="input-field col s3">
+                                <label>
+                                    <input class="with-gap" name="bitmap-type" type="radio" id="bmp-type-prtcl-mono"/>
+                                    <span>单色粒子</span>
+                                </label>
+                            </div>
+                            <div class="input-field col s3">
+                                <label>
+                                    <input class="with-gap" name="bitmap-type" type="radio" id="bmp-type-prtcl-color"/>
+                                    <span>彩色粒子</span>
+                                </label>
+                            </div>
+                        </div>
+                        <div class="row">
+                            <div class="input-field col s3">
+                                <label>
+                                    <input class="with-gap" name="axis" type="radio" id="axis-xy"/>
+                                    <span>XY轴</span>
+                                </label>
+                            </div>
+                            <div class="input-field col s3">
+                                <label>
+                                    <input class="with-gap" name="axis" type="radio" id="axis-yz"/>
+                                    <span>YZ轴</span>
+                                </label>
+                            </div>
+                            <div class="input-field col s3">
+                                <label>
+                                    <input class="with-gap" name="axis" type="radio" id="axis-xz"/>
+                                    <span>XZ轴</span>
+                                </label>
+                            </div>
+                            <div class="input-field col s3">
+                                <label>
+                                    <input type="checkbox" id="axis-reversed" checked="checked"/>
+                                    <span>反转</span>
+                                </label>
+                            </div>
+                        </div>
+                        <div class="row">
+                            <div class="input-field col s3">
+                                <label>
+                                    <input class="with-gap" name="color-space" type="radio" id="color-rgb"/>
+                                    <span>RGB空间</span>
+                                </label>
+                            </div>
+                            <div class="input-field col s3">
+                                <label>
+                                    <input class="with-gap" name="color-space" type="radio" id="color-hsv"/>
+                                    <span>HSV空间</span>
+                                </label>
+                            </div>
+                            <div class="input-field col s6">
+                                <i class="material-icons prefix">stars</i>
+                                <input id="particle" type="text">
+                                <label for="particle">粒子名</label>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="fixed-action-btn">
+                <a class="btn-floating btn-large blue pulse" id="dash">
+                    <i class="large material-icons">dashboard</i>
+                </a>
+                <ul>
+                    <li><a class="btn-floating red" onclick="goToHome();"><i class="material-icons">
+                        home
+                    </i></a></li>
+                    <li><a class="btn-floating green" onclick="goToMIDI();"><i class="material-icons">
+                        library_music
+                    </i></a></li>
+                    <li><a class="btn-floating green" onclick="goToBitmap();"><i class="material-icons">
+                        photo_library
+                    </i></a></li>
+                    <li><a class="btn-floating blue" onclick="goToSettings();"><i class="material-icons">
+                        settings
+                    </i></a></li>
+                </ul>
+            </div>
+        </div>
+    </div>
+    <script>
+        $.get("/static/LICENSE", (res) => $("#license").text(res));
+    </script>
+{% endblock %}

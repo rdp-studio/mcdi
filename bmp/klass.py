@@ -1,8 +1,10 @@
 import logging
+import sys
 from abc import abstractmethod
 
 from PIL import Image
 
+sys.path.append("..")
 from base.minecraft_types import *
 
 

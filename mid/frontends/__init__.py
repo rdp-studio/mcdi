@@ -12,6 +12,8 @@ def vector_build(a, r):
 
 
 class Frontend(object):
+    __author__ = "undefined"
+
     def __init__(self):
         pass
 

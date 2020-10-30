@@ -1,8 +1,10 @@
 import enum
 import math
+import sys
 from functools import reduce
 from operator import add
 
+sys.path.append("..")
 from bmp.klass import *
 
 
@@ -178,7 +180,7 @@ class ParticleGenerator(BaseGenerator):
 
         if self.dthr and self.mono:
             logging.info(f"Dithering {pixel_count} pixel(s).")
-            self.do_dither(pixels)
+            self.run_dither(pixels)
             logging.info(f"Dither procedure finished.")
 
         for x in range(self.x):
@@ -228,8 +230,7 @@ class ParticleGenerator(BaseGenerator):
         else:
             raise RuntimeError("Invalid particle to use color generation.")
 
-
-    def do_dither(self, pixels):
+    def run_dither(self, pixels):
         for y in range(1, self.img.height - 1):
             for x in range(1, self.img.width - 1):
                 old_pixel = pixels[x, y][:3]
@@ -246,3 +247,6 @@ class ParticleGenerator(BaseGenerator):
                 pixels[x, y + 1] = round(r + diff * 5 / 16), round(g + diff * 5 / 16), round(b + diff * 5 / 16)
                 r, g, b = pixels[x + 1, y + 1][:3]
                 pixels[x + 1, y + 1] = round(r + diff * 1 / 16), round(g + diff * 1 / 16), round(b + diff * 1 / 16)
+
+
+__all__ = ["Dirs", "Mdl", "BlockGenerator", "ParticleGenerator"]

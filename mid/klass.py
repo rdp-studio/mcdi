@@ -1,4 +1,5 @@
 import logging
+import sys
 import uuid
 from abc import abstractmethod
 from collections import deque
@@ -7,6 +8,7 @@ from math import floor, ceil
 from mido import MidiFile, tick2second, MidiTrack
 from mido.midifiles.tracks import fix_end_of_track
 
+sys.path.append("..")
 from base.command_types import *
 from base.minecraft_types import *
 
@@ -86,7 +88,7 @@ class BaseGenerator(MidiFile):
         self.gentime_functions = list()
         self.runtime_functions = list()
         # Tick packages
-        self.single_tick_limit = 128
+        self.single_tick_limit = 1 << 16
 
         logging.debug("Preloading tracks.")
         self._merged_track = fast_merge(

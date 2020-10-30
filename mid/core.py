@@ -1,7 +1,8 @@
-import time
+import sys
 from base64 import b64encode
 from operator import itemgetter
 
+sys.path.append("..")
 from mid.klass import *
 
 
@@ -230,20 +231,24 @@ class InGameGenerator(BaseCbGenerator):
     # Plugin APIs
 
     def on_notes(self, ch=None):
-        return list(filter(lambda message: message["type"] == "note_on" and (message["ch"] == ch if ch else True),
-                           self.loaded_messages))  # Every tick
+        return list(filter(
+            lambda message: message["type"] == "note_on" and (message["ch"] == ch if ch is not None else True),
+            self.loaded_messages))  # Every tick
 
     def off_notes(self, ch=None):
-        return list(filter(lambda message: message["type"] == "note_off" and (message["ch"] == ch if ch else True),
-                           self.loaded_messages))  # Every tick
+        return list(filter(
+            lambda message: message["type"] == "note_off" and (message["ch"] == ch if ch is not None else True),
+            self.loaded_messages))  # Every tick
 
     def current_on_notes(self, ch=None):
-        return list(filter(lambda message: message["type"] == "note_on" and (message["ch"] == ch if ch else True),
-                           self.tick_cache))  # Only for this tick
+        return list(filter(
+            lambda message: message["type"] == "note_on" and (message["ch"] == ch if ch is not None else True),
+            self.tick_cache))  # Only for this tick
 
     def current_off_notes(self, ch=None):
-        return list(filter(lambda message: message["type"] == "note_off" and (message["ch"] == ch if ch else True),
-                           self.tick_cache))  # Only for this tick
+        return list(filter(
+            lambda message: message["type"] == "note_off" and (message["ch"] == ch if ch is not None else True),
+            self.tick_cache))  # Only for this tick
 
     def _future_notes(self, type_, tick, ch=None):
         for message in self.loaded_messages:
@@ -251,7 +256,7 @@ class InGameGenerator(BaseCbGenerator):
                 continue
             if message["tick"] < tick:
                 continue
-            if message["tick"] == tick and (message["ch"] == ch if ch else True):
+            if message["tick"] == tick and (message["ch"] == ch if ch is not None else True):
                 yield message
             if message["tick"] > tick:
                 break
@@ -352,28 +357,28 @@ class RealTimeGenerator(BaseCbGenerator):
     def on_notes(self, ch=None):
         return list(map(itemgetter("igc"),
                         filter(lambda message: message["type"] == "note_on" and (
-                            message["igc"]["ch"] == ch if ch else True), self.loaded_messages)
+                            (message["igc"]["ch"] == ch if ch is not None else True)), self.loaded_messages)
                         )
                     )  # Every tick
 
     def off_notes(self, ch=None):
         return list(map(itemgetter("igc"),
                         filter(lambda message: message["type"] == "note_off" and (
-                            message["igc"]["ch"] == ch if ch else True), self.loaded_messages)
+                            (message["igc"]["ch"] == ch if ch is not None else True)), self.loaded_messages)
                         )
                     )  # Every tick
 
     def current_on_notes(self, ch=None):
         return list(map(itemgetter("igc"),
                         filter(lambda message: message["type"] == "note_on" and (
-                            message["igc"]["ch"] == ch if ch else True), self.tick_cache)
+                            (message["igc"]["ch"] == ch if ch is not None else True)), self.tick_cache)
                         )
                     )  # Only for this tick
 
     def current_off_notes(self, ch=None):
         return list(map(itemgetter("igc"),
                         filter(lambda message: message["type"] == "note_off" and (
-                            message["igc"]["ch"] == ch if ch else True), self.tick_cache)
+                            (message["igc"]["ch"] == ch if ch is not None else True)), self.tick_cache)
                         )
                     )  # Only for this tick
 
@@ -383,7 +388,7 @@ class RealTimeGenerator(BaseCbGenerator):
                 continue
             if message["tick"] < tick:
                 continue
-            if message["tick"] == tick and (message["igc"]["ch"] == ch if ch else True):
+            if message["tick"] == tick and (message["igc"]["ch"] == ch if ch is not None else True):
                 yield message["igc"]
             if message["tick"] > tick:
                 break
@@ -395,55 +400,4 @@ class RealTimeGenerator(BaseCbGenerator):
         return list(self._future_notes("note_off", tick, ch))
 
 
-if __name__ == '__main__':
-    from mid.plugins import tweaks, piano, title
-
-    logging.basicConfig(level=logging.INFO)
-
-    generator = RealTimeGenerator(fp=r"D:\音乐\Midi Files\We Don't Talk Anymore.mid", plugins=[
-        tweaks.FixedTime(
-            value=18000
-        ),
-        tweaks.FixedRain(
-            value="clear"
-        ),
-        piano.PianoRoll(
-            block_type="wool"
-        ),
-        piano.PianoRollFirework(),
-        piano.PianoRollRenderer(
-            [
-                {
-                    "funcs": [
-                        {
-                            "instance": piano.OrbitFunctionPreset(),
-                            "dot_dist": .5,
-                        }
-                    ],
-                    "channels": [3],
-                    "tracks": [],
-                }
-            ]
-        ),
-        tweaks.ProgressBar(
-            text="进度条丨Progress Bar"
-        ),
-        title.MainTitle(
-            [
-                {
-                    "text": "We don't talk anymore",
-                    "color": "blue"
-                }
-            ], {
-                "text": "PS：重点在于听，不在于视（）"
-            }
-        ),
-        tweaks.Viewport(
-            *tweaks.Viewport.PRESET2
-        ),
-    ], single_tick_limit=2 ** 31 - 1)  # , _use_function_array=True)
-    generator.auto_tick_rate(base=30)
-    generator.load_messages()
-    generator.build_messages()
-    generator.write_datapack(r"D:\Minecraft\Client\.minecraft\versions\fabric-loader-0.9.2+build.206-1.16.2\saves\MCDI")
-    # generator.write_datapack(r"D:\桌面\midiout-plus-plus\run\saves\TEST")
+__all__ = ["InGameGenerator", "RealTimeGenerator"]
