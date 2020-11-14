@@ -273,33 +273,58 @@ class MainWindow(HtmlGuiWindow):
                 write_shm_long(shm2, val)
 
             update_status("<b>准备：</b>加载插件。", 0)
+
             plugins = []
-            names = cfg['midi']['plugins']
-            for name in names:
-                pkg_name, klass_name = name.split(".")
-                pkg = importlib.import_module(
-                    f"mid.plugins.{pkg_name}"
-                )
-                klass = getattr(pkg, klass_name)
-                args = cfg['midi']['plugins'][name]
-                real_args = {}
 
-                for arg, value in args.items():
-                    arg = arg.replace(f"#plugin-cfg-{pkg_name}-{klass_name}-", "")
-                    if not (isinstance(value, str) and value.strip()):
-                        continue
-                    real_args[arg] = i if (i := eval_or_null(value, vars(pkg))) \
-                                          is not NotImplemented else value
+            def _load_module(type_):
+                _names = cfg['midi'][f'{type_}s']
 
-                instance = klass(**real_args)
-                plugins.append(instance)
+                for name in _names:
+                    _pkg_name, klass_name = name.split(".")
+                    _pkg = importlib.import_module(
+                        f"mid.{type_}s.{_pkg_name}"
+                    )
+                    klass = getattr(_pkg, klass_name)
+                    args = cfg['midi'][f'{type_}s'][name]
+                    real_args = {}
+
+                    for arg, value in args.items():
+                        arg = arg.replace(f"#{type_}-cfg-{_pkg_name}-{klass_name}-", "")
+                        if not (isinstance(value, str) and value.strip()):
+                            continue
+                        real_args[arg] = j if (j := eval_or_null(value, vars(_pkg))) \
+                                              is not NotImplemented else value
+                    try:
+                        instance = klass(**real_args)
+                    except TypeError:
+                        q.put(
+                            f"猜测：无法初始化“{name}”，因为参数类型不正确或缺少。\n{traceback.format_exc()}")
+                        return None
+                    except AttributeError:
+                        q.put(
+                            f"猜测：无法初始化“{name}”，因为找不到指定的类或模块。\n{traceback.format_exc()}")
+                        return None
+                    yield instance
+
+            plugins.extend(_load_module("plugin"))
 
             fp = cfg["midi"]["path"]
             ig = InGameGenerator
 
             if cfg["midi"]["generate_type"] == "rt":
                 update_status("<b>准备：</b>创建生成器实例。", 0)
-                gen = RealTimeGenerator(fp=fp, plugins=plugins, namespace=cfg["func_namespace"])
+                try:
+                    gen = RealTimeGenerator(fp=fp, plugins=plugins, namespace=cfg["func_namespace"])
+                except FileNotFoundError:
+                    q.put(f"猜测：无法创建生成器实例，因为无法找到MIDI文件。\n{traceback.format_exc()}")
+                    return None
+                except PermissionError:
+                    q.put(f"猜测：无法创建生成器实例，因为无法读取MIDI文件。\n{traceback.format_exc()}")
+                    return None
+                except (OSError, IOError):
+                    q.put(f"猜测：无法创建生成器实例，因为MIDI文件无效。\n{traceback.format_exc()}")
+                    return None
+
 
             elif cfg["midi"]["generate_type"] == "ig":
                 update_status("<b>准备：</b>加载前端。", 0)
@@ -310,59 +335,68 @@ class MainWindow(HtmlGuiWindow):
                 pkg = importlib.import_module(
                     f"mid.frontends.{pkg_name}"
                 )
-                frontend = getattr(pkg, frn_name)
+                try:
+                    frontend = getattr(pkg, frn_name)
+                except AttributeError:
+                    q.put(
+                        f"猜测：无法初始化前端“{frn_name}”，因为找不到指定的前端。\n{traceback.format_exc()}")
+                    return None
 
                 update_status("<b>准备：</b>加载中间件。", 0)
                 middles = []
-                names = cfg['midi']['middles']
-                for name in names:
-                    pkg_name, klass_name = name.split(".")
-                    pkg = importlib.import_module(
-                        f"mid.middles.{pkg_name}"
-                    )
-                    klass = getattr(pkg, klass_name)
-                    args = cfg['midi']['middles'][name]
-                    real_args = {}
-
-                    for arg, value in args.items():
-                        arg = arg.replace(f"#middle-cfg-{pkg_name}-{klass_name}-", "")
-                        if not (isinstance(value, str) and value.strip()):
-                            continue
-                        real_args[arg] = i if (i := eval_or_null(value, vars(pkg))) \
-                                              is not NotImplemented else value
-
-                    instance = klass(**real_args)
-                    middles.append(instance)
+                middles.extend(_load_module("middle"))
 
                 update_status("<b>准备：</b>创建生成器实例。", 0)
-                gen = InGameGenerator(
-                    fp=fp, frontend=frontend, plugins=plugins, middles=middles, namespace=cfg["func_namespace"]
-                )
+                try:
+                    gen = InGameGenerator(
+                        fp=fp, frontend=frontend, plugins=plugins, middles=middles, namespace=cfg["func_namespace"]
+                    )
+                except FileNotFoundError:
+                    q.put(f"猜测：无法创建生成器实例，因为无法找到MIDI文件。\n{traceback.format_exc()}")
+                    return None
+                except PermissionError:
+                    q.put(f"猜测：无法创建生成器实例，因为无法读取MIDI文件。\n{traceback.format_exc()}")
+                    return None
+                except (OSError, IOError):
+                    q.put(f"猜测：无法创建生成器实例，因为MIDI文件无效。\n{traceback.format_exc()}")
+                    return None
 
-                gen.gvol_enabled = not cfg["midi"]["overrides"]["gvol"]
-                gen.prog_enabled = not cfg["midi"]["overrides"]["program"]
-                gen.phase_enabled = not cfg["midi"]["overrides"]["phase"]
-                gen.pitch_enabled = not cfg["midi"]["overrides"]["pitch"]
-                gen.pitch_factor = float(cfg["midi"]["pitch_factor"])
-                gen.volume_factor = float(cfg["midi"]["volume_factor"])
+                try:
+                    gen.gvol_enabled = not cfg["midi"]["overrides"]["gvol"]
+                    gen.prog_enabled = not cfg["midi"]["overrides"]["program"]
+                    gen.phase_enabled = not cfg["midi"]["overrides"]["phase"]
+                    gen.pitch_enabled = not cfg["midi"]["overrides"]["pitch"]
+                    gen.pitch_factor = float(cfg["midi"]["pitch_factor"])
+                    gen.volume_factor = float(cfg["midi"]["volume_factor"])
+                except ValueError:
+                    q.put(f"猜测：无法配置生成器实例，因为无法解析浮点数。\n{traceback.format_exc()}")
+                    return None
 
             else:
                 raise RuntimeError("不合法的生成类型。")
 
-            gen.wrap_length = round(float(cfg["midi"]["wrap_length"]))
-            gen._use_function_array = cfg["midi"]["use_func"]
-            gen._auto_function_array = cfg["midi"]["auto_func"]
-            gen.blank_ticks = round(float(cfg["midi"]["blank_ticks"]))
-            gen.tick_rate = float(cfg["midi"]["tick_rate"])
-            gen.tick_scale = float(cfg["midi"]["tick_scale"])
+            try:
+                gen.wrap_length = round(float(cfg["midi"]["wrap_length"]))
+                gen._use_function_array = cfg["midi"]["use_func"]
+                gen._auto_function_array = cfg["midi"]["auto_func"]
+                gen.blank_ticks = round(float(cfg["midi"]["blank_ticks"]))
+                gen.tick_rate = float(cfg["midi"]["tick_rate"])
+                gen.tick_scale = float(cfg["midi"]["tick_scale"])
+            except ValueError:
+                q.put(f"猜测：无法配置生成器实例，因为无法解析浮点数。\n{traceback.format_exc()}")
+                return None
 
             if (i := cfg["midi"]["auto_adjust"])["is_enabled"]:
                 update_status("<b>生成：</b>自动调整参数。", 20)
-                gen.auto_tick_rate(
-                    base=float(i["base"]),
-                    step=float(i["step"]),
-                    tolerance=float(i["tolerance"])
-                )
+                try:
+                    gen.auto_tick_rate(
+                        base=float(i["base"]),
+                        step=float(i["step"]),
+                        tolerance=float(i["tolerance"])
+                    )
+                except ValueError:
+                    q.put(f"猜测：无法自动调整参数，因为无法解析浮点数。\n{traceback.format_exc()}")
+                    return None
 
             if cfg["midi"]["note_links"] and isinstance(gen, ig):
                 update_status("<b>生成：</b>预加载音符链。", 40)
@@ -381,7 +415,11 @@ class MainWindow(HtmlGuiWindow):
             world = os.path.join(saves, cfg["world_selected"])
 
             update_status("<b>生成：</b写入数据包。", 100)
-            gen.write_datapack(world)
+            try:
+                gen.write_datapack(world)
+            except FileNotFoundError:
+                q.put(f"猜测：无法写入数据包，因为世界路径不存在。\n{traceback.format_exc()}")
+                return None
 
             update_status("<b>结束：</b>销毁生成器实例。", 100)
             del gen
@@ -692,7 +730,7 @@ class MainWindow(HtmlGuiWindow):
         self.loaded_plugins.clear()
         self.loaded_middles.clear()
         self.loaded_frontends.clear()
-        287
+
         plugins.update(self._load_module(mid.plugins.__path__, "plugins", Plugin))
         middles.update(self._load_module(mid.middles.__path__, "middles", Middle))
         frontends.update(self._load_module(mid.frontends.__path__, "frontends", Frontend))

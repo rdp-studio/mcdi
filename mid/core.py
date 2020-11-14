@@ -401,3 +401,56 @@ class RealTimeGenerator(BaseCbGenerator):
 
 
 __all__ = ["InGameGenerator", "RealTimeGenerator"]
+
+
+if __name__ == '__main__':
+    from mid.plugins import tweaks, piano, title
+
+    logging.basicConfig(level=logging.INFO)
+
+    generator = RealTimeGenerator(fp=r"D:\音乐\Midi Files\LEVEL5 -judgelight-（管弦）.mid", plugins=[
+        tweaks.FixedTime(
+            value=18000
+        ),
+        tweaks.FixedRain(
+            value="clear"
+        ),
+        piano.PianoRoll(
+            block_type="wool"
+        ),
+        piano.PianoRollFirework(),
+        # piano.PianoRollRenderer(
+        #     [
+        #         {
+        #             "funcs": [
+        #                 {
+        #                     "instance": piano.PowerFunctionPreset(),
+        #                     "dot_dist": .1,
+        #                 }
+        #             ],
+        #             "channels": [0],
+        #             "tracks": [],
+        #         }
+        #     ]
+        # ),
+        tweaks.ProgressBar(
+            text="进度条丨Progress Bar"
+        ),
+        title.MainTitle(
+            [
+                {
+                    "text": "LEVEL5 -judgelight-",
+                    "color": "blue"
+                }
+            ], {
+                "text": "宁以为是什么？（）"
+            }
+        ),
+        tweaks.Viewport(
+            *tweaks.Viewport.PRESET2
+        ),
+    ], single_tick_limit=2 ** 31 - 1)
+    generator.auto_tick_rate(base=30)
+    generator.load_messages()
+    generator.build_messages()
+    generator.write_datapack(r"D:\Minecraft\.minecraft\versions\fabric-loader-0.9.2+build.206-1.16.2\saves\MCDI")

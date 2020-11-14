@@ -14,6 +14,7 @@
 ### 如何安装运行环境？
 先[安装Python](https://www.liaoxuefeng.com/wiki/1016959663602400/1016959856222624) ，然后键入`pip install mido`和`pip install pillow`。
 
+如果您打算使用GUI，则可以直接前往Releases直接下载可执行文件。
 
 ## 作品展示
 + MIDIOut++生成——
@@ -21,9 +22,9 @@
 + 原版资源包生成——
 [千本樱](https://www.bilibili.com/video/BV1Hz4y1f7FW) 丨[恋爱循环](https://www.bilibili.com/video/BV1Na4y1i7tV)
 
-## 教程
+## GUI
 
-*\[ 尚未完工 \]*
+功能和直接调用源代码一样齐全！快去下载！
 
 ## 前端（适用于原版资源包）
 + wxv2.WorkerXG：生成可以使用WorkerXG资源包播放的音乐。音质（在资源包中）最好。

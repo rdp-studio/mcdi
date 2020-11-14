@@ -157,7 +157,7 @@ class BaseCbGenerator(BaseGenerator):
 
         # Tick package toggle
         self._use_function_array = False  # * Experimental *
-        self._auto_function_array = False  # * Experimental *
+        self._auto_function_array = True # * Experimental *
 
         super(BaseCbGenerator, self).__init__(*args, **kwargs)
 

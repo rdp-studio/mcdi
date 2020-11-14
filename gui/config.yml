@@ -9,14 +9,14 @@ fast_copy_func: true
 func_namespace: mcdi
 midi:
   auto_adjust:
-    base: '20'
+    base: '30'
     is_enabled: true
     step: '0.1'
     tolerance: '2.0'
   auto_func: true
   blank_ticks: '0.0'
   frontend: soma.Soma
-  generate_type: ig
+  generate_type: rt
   middles: {}
   note_links: true
   overrides:
@@ -24,14 +24,45 @@ midi:
     phase: false
     pitch: false
     program: false
-  path: sample.mid
+  path: "D:\\\u97F3\u4E50\\Midi Files\\LEVEL5 -judgelight-\uFF08\u7BA1\u5F26\uFF09\
+    .mid"
   pitch_factor: '1.0'
   plugins:
+    piano.PianoRoll:
+      '#plugin-cfg-piano-PianoRoll-axis_y_shift': ''
+      '#plugin-cfg-piano-PianoRoll-block_type': ''
+      '#plugin-cfg-piano-PianoRoll-layered': ''
+      '#plugin-cfg-piano-PianoRoll-mapping': ''
+      '#plugin-cfg-piano-PianoRoll-real_len': ''
+      '#plugin-cfg-piano-PianoRoll-reverse_wrap': ''
+      '#plugin-cfg-piano-PianoRoll-wrap_shift': ''
+    piano.PianoRollFirework:
+      '#plugin-cfg-piano-PianoRollFirework-effect_limit': ''
+    piano.PianoRollRenderer:
+      '#plugin-cfg-piano-PianoRollRenderer-dot_distance': ''
+      '#plugin-cfg-piano-PianoRollRenderer-effect_limit': ''
+      '#plugin-cfg-piano-PianoRollRenderer-expressions': '[{"funcs": [{"instance":PowerFunctionPreset(),
+        "dot_dist": .1,}],"channels": [0],"tracks": [],}]'
     title.MainTitle:
       '#plugin-cfg-title-MainTitle-in_subtitle': IN_SUBTITLE
-      '#plugin-cfg-title-MainTitle-in_title': IN_TITLE
+      '#plugin-cfg-title-MainTitle-in_title': None
       '#plugin-cfg-title-MainTitle-out_subtitle': OUT_SUBTITLE
       '#plugin-cfg-title-MainTitle-out_title': OUT_TITLE
+    tweaks.FixedRain:
+      '#plugin-cfg-tweaks-FixedRain-value': ''
+    tweaks.FixedTime:
+      '#plugin-cfg-tweaks-FixedTime-value': ''
+    tweaks.ProgressBar:
+      '#plugin-cfg-tweaks-ProgressBar-color': ''
+      '#plugin-cfg-tweaks-ProgressBar-pk': ''
+      '#plugin-cfg-tweaks-ProgressBar-text': ''
+    tweaks.Viewport:
+      '#plugin-cfg-tweaks-Viewport-fx': '0'
+      '#plugin-cfg-tweaks-Viewport-fy': '24'
+      '#plugin-cfg-tweaks-Viewport-fz': '64'
+      '#plugin-cfg-tweaks-Viewport-x': '-24'
+      '#plugin-cfg-tweaks-Viewport-y': '48'
+      '#plugin-cfg-tweaks-Viewport-z': '64'
   tick_rate: '20'
   tick_scale: '1.0'
   use_func: false
