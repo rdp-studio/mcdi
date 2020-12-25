@@ -56,8 +56,8 @@ def eval_or_null(*args, **kwargs):
 
 
 class MainWindow(HtmlGuiWindow):
-    GITHUB_URL = "https://github.com/FrankYang6921/mcdi/"
-    BILIBILI_URL = "https://space.bilibili.com/21743452/"
+    GITHUB_URL = "https://github.com/rdp-studio/mcdi/"
+    BILIBILI_URL = "https://space.bilibili.com/392383363/"
     FRIEND_URL = "https://rsm.cool/s/"
     ISSUES_URL = GITHUB_URL + "issues/new/"
 
