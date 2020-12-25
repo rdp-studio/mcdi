@@ -17,10 +17,7 @@
 如果您打算使用GUI，则可以直接前往Releases直接下载可执行文件。
 
 ## 作品展示
-+ MIDIOut++生成——
-[打上花火](https://www.bilibili.com/video/BV1Hz4y1f7FW) 丨[Lemon](https://www.bilibili.com/video/BV1954y1U7C7)
-+ 原版资源包生成——
-[千本樱](https://www.bilibili.com/video/BV1Hz4y1f7FW) 丨[恋爱循环](https://www.bilibili.com/video/BV1Na4y1i7tV)
+请等待上传完毕
 
 ## GUI
 
@@ -31,9 +28,6 @@
 + soma.Soma：生成可以使用Soma(v20α)资源包播放的音乐。音质（在资源包中）较好。
 + vanilla.Vanilla：生成使用原版音色，不需要资源包播放的音乐。音质（在资源包中）最差。
 + mcrg.MCRG：生成可以使用MCRG生成的资源包播放的音乐。可以类比成音MAD。
-
-## 实时生成（适用于MIDIOut++）
-~~让前端滚蛋！~~我们编写了一个[MIDIOut++](https://github.com/FrankYang6921/midioutpp) 模组，这样您就可以通过MIDI设备播放音乐（详情请点击链接）。要运行这个模组，你需要安装了Fabric Loader和Fabric API的Minecraft 1.16.x。
 
 ## 内置插件
 
@@ -64,4 +58,4 @@
 *\[ 尚未完工 \]*
 
 ## 授权
-MCDI 是由kworker(FrankYang6921)制作，遵从GPLv3协议的自由软件。本软件没有担保。你可以前往红石音乐俱乐部或Minecraft视听俱乐部（591318869或1129026982）或加作者QQ（3450123872）以获取帮助。
+MCDI 是由kworker(FrankYang6921)制作，RDP改进，遵从GPLv3协议的自由软件。本软件没有担保。你可以前往红石音乐俱乐部或Minecraft视听俱乐部（591318869或1129026982）或加改进作者QQ（3461768305）以获取帮助。
